@@ -24,6 +24,7 @@ import {
   savePlanRecordPatch,
 } from '~/db/queries/plans'
 import { buildPlanAvatarToneMap } from '~/lib/plan-avatar'
+import { buildPlanMemberGroups } from '~/lib/plan-member-groups'
 import { planRecordPatchSchema } from '~/lib/plan.schema'
 import { createSupabaseServerClient } from '~/lib/supabase.server'
 
@@ -228,8 +229,7 @@ export default function PlansRecordsMonthEdit() {
   const years = Array.from({ length: CURRENT_YEAR + 2 - 2020 + 1 }, (_, i) => 2020 + i)
   const months = Array.from({ length: 12 }, (_, i) => i + 1)
 
-  function addItem(type: 'income' | 'expense') {
-    const memberId = data.currentUserId
+  function addItem(memberId: string, type: 'income' | 'expense') {
     setItems(prev => [...prev, {
       id: `new-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       itemType: type,
@@ -335,12 +335,14 @@ export default function PlansRecordsMonthEdit() {
     submit(fd, { method: 'post' })
   }
 
-  const incomeItems = items.filter(item => item.itemType === 'income')
-  const expenseItems = items.filter(item => item.itemType === 'expense')
   const currentMonthKey = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}`
-  const memberMap = useMemo(
-    () => new Map(data.members.map(member => [member.userId, member])),
-    [data.members],
+  const memberGroups = useMemo(
+    () => buildPlanMemberGroups(data.members, items, data.currentUserId, true),
+    [data.currentUserId, data.members, items],
+  )
+  const memberNoteMap = useMemo(
+    () => new Map(memberNotes.map(note => [note.memberId, note])),
+    [memberNotes],
   )
   const memberToneMap = useMemo(
     () => buildPlanAvatarToneMap(data.members.map(member => member.userId)),
@@ -403,172 +405,109 @@ export default function PlansRecordsMonthEdit() {
         </div>
       </div>
 
-      <div className="mb-6">
-        <h2 className="mb-3 text-sm font-medium" style={{ color: 'var(--color-ink)' }}>
-          收入明细
-        </h2>
-        <div className="flex flex-col gap-2">
-          {incomeItems.map((item) => {
-            const editable = itemEditable(item, data.currentUserId, data.canEditAllItems)
-            return (
-              <div
-                key={item.id}
-                className="flex items-center gap-2 rounded-lg border px-3 py-2.5"
-                style={{
-                  background: 'var(--color-surface-card)',
-                  borderColor: 'var(--color-hairline)',
-                  opacity: editable ? 1 : 0.5,
-                }}
-              >
-                <PublicAvatar
-                  emoji={memberMap.get(item.memberId)?.avatarEmoji}
-                  nickname={memberMap.get(item.memberId)?.displayName || '成员'}
-                  size="md"
-                  backgroundColor={memberToneMap.get(item.memberId)?.backgroundColor}
-                  textColor={memberToneMap.get(item.memberId)?.textColor}
-                  title={memberMap.get(item.memberId)?.displayName || '成员'}
-                />
-                <Input
-                  type="text"
-                  value={item.name}
-                  onChange={e => updateItem(item.id, { name: e.target.value })}
-                  placeholder="项目名称"
-                  className="h-9 min-w-0 flex-1"
-                  disabled={!editable}
-                />
-                <Input
-                  type="number"
-                  value={item.amount}
-                  onChange={e => updateItem(item.id, { amount: e.target.value })}
-                  placeholder="金额"
-                  className="h-9 w-28 shrink-0 font-[family-name:var(--font-mono)]"
-                  disabled={!editable}
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  onClick={() => removeItem(item.id)}
-                  disabled={!editable}
-                  className="shrink-0"
-                >
-                  <IconTrash size={14} />
-                </Button>
-              </div>
-            )
-          })}
-          <Button type="button" variant="outline" className="h-10 border-dashed" onClick={() => addItem('income')}>
-            <IconPlus size={16} />
-            添加收入项
-          </Button>
-        </div>
-      </div>
+      <div className="mb-6 space-y-4">
+        {memberGroups.map((group) => {
+          const editable = group.isActiveMember && (data.canEditAllItems || group.member.userId === data.currentUserId)
+          const note = memberNoteMap.get(group.member.userId)
+          const itemSections = [
+            { label: '收入', type: 'income' as const, items: group.incomeItems, color: 'var(--color-success)' },
+            { label: '支出', type: 'expense' as const, items: group.expenseItems, color: 'var(--color-error)' },
+          ]
 
-      <div className="mb-6">
-        <h2 className="mb-3 text-sm font-medium" style={{ color: 'var(--color-ink)' }}>
-          支出明细
-        </h2>
-        <div className="flex flex-col gap-2">
-          {expenseItems.map((item) => {
-            const editable = itemEditable(item, data.currentUserId, data.canEditAllItems)
-            return (
-              <div
-                key={item.id}
-                className="flex items-center gap-2 rounded-lg border px-3 py-2.5"
-                style={{
-                  background: 'var(--color-surface-card)',
-                  borderColor: 'var(--color-hairline)',
-                  opacity: editable ? 1 : 0.5,
-                }}
-              >
-                <PublicAvatar
-                  emoji={memberMap.get(item.memberId)?.avatarEmoji}
-                  nickname={memberMap.get(item.memberId)?.displayName || '成员'}
-                  size="md"
-                  backgroundColor={memberToneMap.get(item.memberId)?.backgroundColor}
-                  textColor={memberToneMap.get(item.memberId)?.textColor}
-                  title={memberMap.get(item.memberId)?.displayName || '成员'}
-                />
-                <Input
-                  type="text"
-                  value={item.name}
-                  onChange={e => updateItem(item.id, { name: e.target.value })}
-                  placeholder="项目名称"
-                  className="h-9 min-w-0 flex-1"
-                  disabled={!editable}
-                />
-                <Input
-                  type="number"
-                  value={item.amount}
-                  onChange={e => updateItem(item.id, { amount: e.target.value })}
-                  placeholder="金额"
-                  className="h-9 w-28 shrink-0 font-[family-name:var(--font-mono)]"
-                  disabled={!editable}
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  onClick={() => removeItem(item.id)}
-                  disabled={!editable}
-                  className="shrink-0"
-                >
-                  <IconTrash size={14} />
-                </Button>
-              </div>
-            )
-          })}
-          <Button type="button" variant="outline" className="h-10 border-dashed" onClick={() => addItem('expense')}>
-            <IconPlus size={16} />
-            添加支出项
-          </Button>
-        </div>
-      </div>
-
-      <div className="mb-6">
-        <h2 className="mb-3 text-sm font-medium" style={{ color: 'var(--color-ink)' }}>
-          备注
-        </h2>
-        <div className="flex flex-col gap-2">
-          {memberNotes.map((note) => {
-            const isSelf = note.memberId === data.currentUserId
-            return (
-              <div
-                key={note.memberId}
-                className="flex items-start gap-2.5 rounded-lg border px-3 py-2.5"
-                style={{
-                  background: 'var(--color-surface-card)',
-                  borderColor: 'var(--color-hairline)',
-                }}
-              >
-                <PublicAvatar
-                  emoji={note.avatarEmoji}
-                  nickname={note.displayName}
-                  size="md"
-                  backgroundColor={memberToneMap.get(note.memberId)?.backgroundColor}
-                  textColor={memberToneMap.get(note.memberId)?.textColor}
-                />
-                <div className="min-w-0 flex-1">
-                  {isSelf
-                    ? (
-                        <Input
-                          type="text"
-                          value={note.note}
-                          onChange={e => updateMemberNote(note.memberId, e.target.value)}
-                          placeholder="填写备注"
-                          className="h-9 text-xs"
-                        />
-                      )
-                    : (
-                        <div className="rounded-md bg-[var(--color-surface-soft)] px-2.5 py-2 text-xs leading-5" style={{ color: 'var(--color-body)' }}>
-                          {note.note || '暂无备注'}
-                        </div>
-                      )}
+          return (
+            <section key={group.member.userId} className="overflow-hidden rounded-xl border" style={{ background: 'var(--color-surface-card)', borderColor: 'var(--color-hairline)' }}>
+              <div className="flex flex-col gap-2 border-b px-4 py-3 sm:flex-row sm:items-center sm:justify-between" style={{ borderColor: 'var(--color-hairline)' }}>
+                <div className="flex min-w-0 items-center gap-2.5">
+                  <PublicAvatar
+                    emoji={group.member.avatarEmoji}
+                    nickname={group.member.displayName}
+                    size="sm"
+                    backgroundColor={memberToneMap.get(group.member.userId)?.backgroundColor}
+                    textColor={memberToneMap.get(group.member.userId)?.textColor}
+                  />
+                  <span className="truncate text-sm font-medium" style={{ color: 'var(--color-ink)' }}>{group.member.displayName}</span>
+                  {!editable && <span className="rounded px-1.5 py-0.5 text-[10px]" style={{ color: 'var(--color-muted)', background: 'var(--color-surface-soft)' }}>只读</span>}
+                </div>
+                <div className="whitespace-nowrap font-[family-name:var(--font-mono)] text-xs tabular-nums" style={{ color: 'var(--color-muted)' }}>
+                  收入
+                  {' '}
+                  {group.totalIncome.toLocaleString()}
+                  {' · 支出 '}
+                  {group.totalExpense.toLocaleString()}
+                  {' · '}
+                  <span style={{ color: group.netIncome > 0 ? 'var(--color-success)' : group.netIncome < 0 ? 'var(--color-error)' : 'var(--color-muted)' }}>
+                    净额
+                    {' '}
+                    {group.netIncome > 0 ? '+' : ''}
+                    {group.netIncome.toLocaleString()}
+                  </span>
                 </div>
               </div>
-            )
-          })}
-        </div>
+
+              <div className="space-y-4 p-3">
+                {itemSections.map(section => (
+                  <div key={section.type}>
+                    <div className="mb-2 text-xs font-medium" style={{ color: section.color }}>{section.label}</div>
+                    <div className="space-y-2">
+                      {section.items.map(item => (
+                        <div key={item.id} className="flex flex-wrap items-center gap-2 sm:flex-nowrap">
+                          <Input
+                            type="text"
+                            value={item.name}
+                            onChange={e => updateItem(item.id, { name: e.target.value })}
+                            placeholder="项目名称"
+                            className="h-9 min-w-[160px] flex-1"
+                            disabled={!editable}
+                          />
+                          <Input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={item.amount}
+                            onChange={e => updateItem(item.id, { amount: e.target.value })}
+                            placeholder="金额"
+                            className="h-9 min-w-0 flex-1 font-[family-name:var(--font-mono)] sm:w-32 sm:flex-none"
+                            disabled={!editable}
+                          />
+                          {editable && (
+                            <Button type="button" variant="ghost" size="icon-sm" onClick={() => removeItem(item.id)} className="shrink-0">
+                              <IconTrash size={14} />
+                            </Button>
+                          )}
+                        </div>
+                      ))}
+                      {editable && (
+                        <Button type="button" variant="outline" size="sm" className="h-9 w-full border-dashed" onClick={() => addItem(group.member.userId, section.type)}>
+                          <IconPlus size={14} />
+                          添加
+                          {section.label}
+                          项
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+
+                {note && (
+                  <div>
+                    <div className="mb-2 text-xs font-medium" style={{ color: 'var(--color-muted)' }}>备注</div>
+                    {note.memberId === data.currentUserId
+                      ? (
+                          <Input
+                            type="text"
+                            value={note.note}
+                            onChange={e => updateMemberNote(note.memberId, e.target.value)}
+                            placeholder="填写备注"
+                            className="h-9 text-xs"
+                          />
+                        )
+                      : <div className="rounded-md px-2.5 py-2 text-xs leading-5" style={{ color: 'var(--color-body)', background: 'var(--color-surface-soft)' }}>{note.note || '暂无备注'}</div>}
+                  </div>
+                )}
+              </div>
+            </section>
+          )
+        })}
       </div>
 
       {actionData?.error && (
