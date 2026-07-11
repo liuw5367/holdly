@@ -4,8 +4,9 @@ import { db } from '~/db'
 import { assets, profiles, reminderJobs, warranties } from '~/db/schema'
 import { sendEmail } from '~/lib/email.server'
 
-export function calcDueDate(asset: typeof assets.$inferSelect): string | null {
-  if (asset.nextRenewalDate && asset.nextRenewalDate > format(new Date(), 'yyyy-MM-dd')) {
+export function calcDueDate(asset: typeof assets.$inferSelect, today = new Date()): string | null {
+  const todayStr = format(today, 'yyyy-MM-dd')
+  if (asset.nextRenewalDate && asset.nextRenewalDate > todayStr) {
     return asset.nextRenewalDate
   }
 
@@ -15,14 +16,19 @@ export function calcDueDate(asset: typeof assets.$inferSelect): string | null {
 
   const cycleMonths = { monthly: 1, quarterly: 3, yearly: 12 } as const
   const months = cycleMonths[asset.billingCycle]
-  const today = new Date()
   let next = new Date(`${startDate}T00:00:00`)
 
-  while (format(next, 'yyyy-MM-dd') <= format(today, 'yyyy-MM-dd')) {
+  while (format(next, 'yyyy-MM-dd') <= todayStr) {
     next = asset.billingCycle === 'yearly' ? addYears(next, 1) : addMonths(next, months)
   }
 
   return format(next, 'yyyy-MM-dd')
+}
+
+export function isReminderProfileEnabled<T extends { reminderEnabled: boolean | null, email: string | null }>(
+  profile: T,
+): profile is T & { email: string } {
+  return profile.reminderEnabled !== false && Boolean(profile.email)
 }
 
 export async function processUserReminders(userId: string): Promise<number> {
@@ -30,6 +36,7 @@ export async function processUserReminders(userId: string): Promise<number> {
     .select({
       reminderSubscriptionDays: profiles.reminderSubscriptionDays,
       reminderWarrantyDays: profiles.reminderWarrantyDays,
+      reminderEnabled: profiles.reminderEnabled,
       email: profiles.email,
     })
     .from(profiles)
@@ -37,10 +44,11 @@ export async function processUserReminders(userId: string): Promise<number> {
     .limit(1)
     .then(r => r[0])
 
-  if (!profile?.email)
+  if (!profile || !isReminderProfileEnabled(profile))
     return 0
 
-  const today = format(new Date(), 'yyyy-MM-dd')
+  const now = new Date()
+  const today = format(now, 'yyyy-MM-dd')
   let sentCount = 0
 
   // ===== 订阅续费提醒 =====
@@ -57,7 +65,7 @@ export async function processUserReminders(userId: string): Promise<number> {
 
   for (const a of activeSubscriptions) {
     const reminderDays = a.reminderSubscriptionDaysOverride ?? profile.reminderSubscriptionDays ?? 7
-    const dueDate = calcDueDate(a)
+    const dueDate = calcDueDate(a, now)
     if (!dueDate)
       continue
 
