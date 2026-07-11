@@ -22,6 +22,7 @@ import {
   softDeletePlanRecord,
 } from '~/db/queries/plans'
 import { buildPlanAvatarToneMap } from '~/lib/plan-avatar'
+import { buildPlanMemberGroups } from '~/lib/plan-member-groups'
 import { createSupabaseServerClient } from '~/lib/supabase.server'
 
 export async function loader({ request, params }: Route.LoaderArgs) {
@@ -41,7 +42,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
   if (!recordData)
     throw new Response('Not Found', { status: 404 })
 
-  return loaderDataFn(recordData, { headers })
+  return loaderDataFn({ ...recordData, currentUserId: user.id }, { headers })
 }
 
 export async function action({ request, params }: Route.ActionArgs) {
@@ -81,10 +82,12 @@ export default function PlansRecordsMonth() {
     && navigation.formData?.get('intent') === 'delete-record'
 
   const monthKey = `${data.record.year}-${String(data.record.month).padStart(2, '0')}`
-  const incomeItems = useMemo(() => data.record.items.filter(item => item.itemType === 'income'), [data.record.items])
-  const expenseItems = useMemo(() => data.record.items.filter(item => item.itemType === 'expense'), [data.record.items])
-  const memberNotes = useMemo(
-    () => data.record.memberNotes.filter(note => note.note.trim().length > 0),
+  const memberGroups = useMemo(
+    () => buildPlanMemberGroups(data.members, data.record.items, data.currentUserId, false),
+    [data.currentUserId, data.members, data.record.items],
+  )
+  const memberNoteMap = useMemo(
+    () => new Map(data.record.memberNotes.map(note => [note.memberId, note.note])),
     [data.record.memberNotes],
   )
   const memberToneMap = useMemo(
@@ -140,88 +143,70 @@ export default function PlansRecordsMonth() {
         </div>
       </div>
 
-      <div className="mb-6">
-        <h2 className="mb-3 text-sm font-medium" style={{ color: 'var(--color-ink)' }}>收入明细</h2>
-        <div className="rounded-xl border" style={{ background: 'var(--color-surface-card)', borderColor: 'var(--color-hairline)' }}>
-          {incomeItems.length === 0
-            ? <div className="px-4 py-6 text-center text-xs" style={{ color: 'var(--color-muted)' }}>暂无收入记录</div>
-            : (
-                <>
-                  {incomeItems.map(item => (
-                    <div key={item.id} className="flex items-center gap-3 border-b px-4 py-3 last:border-b-0" style={{ borderColor: 'var(--color-hairline)' }}>
+      <div className="space-y-4">
+        {memberGroups.length === 0
+          ? <div className="rounded-xl border px-4 py-8 text-center text-sm" style={{ color: 'var(--color-muted)', borderColor: 'var(--color-hairline)' }}>暂无收支记录</div>
+          : memberGroups.map((group) => {
+              const note = memberNoteMap.get(group.member.userId)?.trim()
+              return (
+                <section key={group.member.userId} className="overflow-hidden rounded-xl border" style={{ background: 'var(--color-surface-card)', borderColor: 'var(--color-hairline)' }}>
+                  <div className="flex flex-col gap-2 border-b px-4 py-3 sm:flex-row sm:items-center sm:justify-between" style={{ borderColor: 'var(--color-hairline)' }}>
+                    <div className="flex min-w-0 items-center gap-2.5">
                       <PublicAvatar
-                        emoji={item.memberEmoji}
-                        nickname={item.memberName}
+                        emoji={group.member.avatarEmoji}
+                        nickname={group.member.displayName}
                         size="sm"
-                        backgroundColor={memberToneMap.get(item.memberId)?.backgroundColor}
-                        textColor={memberToneMap.get(item.memberId)?.textColor}
+                        backgroundColor={memberToneMap.get(group.member.userId)?.backgroundColor}
+                        textColor={memberToneMap.get(group.member.userId)?.textColor}
                       />
-                      <span className="flex-1 text-sm" style={{ color: 'var(--color-ink)' }}>{item.name}</span>
-                      <span className="font-[family-name:var(--font-mono)] text-sm font-medium" style={{ color: 'var(--color-success)' }}>
+                      <span className="truncate text-sm font-medium" style={{ color: 'var(--color-ink)' }}>{group.member.displayName}</span>
+                    </div>
+                    <div className="whitespace-nowrap font-[family-name:var(--font-mono)] text-xs tabular-nums" style={{ color: 'var(--color-muted)' }}>
+                      收入
+                      {' '}
+                      {group.totalIncome.toLocaleString()}
+                      {' · 支出 '}
+                      {group.totalExpense.toLocaleString()}
+                      {' · '}
+                      <span style={{ color: group.netIncome > 0 ? 'var(--color-success)' : group.netIncome < 0 ? 'var(--color-error)' : 'var(--color-muted)' }}>
+                        净额
+                        {' '}
+                        {group.netIncome > 0 ? '+' : ''}
+                        {group.netIncome.toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
+
+                  {group.incomeItems.map(item => (
+                    <div key={item.id} className="flex items-center gap-3 border-b px-4 py-3 last:border-b-0" style={{ borderColor: 'var(--color-hairline)' }}>
+                      <span className="w-8 shrink-0 text-xs" style={{ color: 'var(--color-success)' }}>收入</span>
+                      <span className="min-w-0 flex-1 truncate text-sm" style={{ color: 'var(--color-ink)' }}>{item.name}</span>
+                      <span className="font-[family-name:var(--font-mono)] text-sm font-medium tabular-nums" style={{ color: 'var(--color-success)' }}>
                         +
                         {item.amount.toLocaleString()}
                       </span>
                     </div>
                   ))}
-                </>
-              )}
-        </div>
-      </div>
-
-      <div>
-        <h2 className="mb-3 text-sm font-medium" style={{ color: 'var(--color-ink)' }}>支出明细</h2>
-        <div className="rounded-xl border" style={{ background: 'var(--color-surface-card)', borderColor: 'var(--color-hairline)' }}>
-          {expenseItems.length === 0
-            ? <div className="px-4 py-6 text-center text-xs" style={{ color: 'var(--color-muted)' }}>暂无支出记录</div>
-            : (
-                <>
-                  {expenseItems.map(item => (
+                  {group.expenseItems.map(item => (
                     <div key={item.id} className="flex items-center gap-3 border-b px-4 py-3 last:border-b-0" style={{ borderColor: 'var(--color-hairline)' }}>
-                      <PublicAvatar
-                        emoji={item.memberEmoji}
-                        nickname={item.memberName}
-                        size="sm"
-                        backgroundColor={memberToneMap.get(item.memberId)?.backgroundColor}
-                        textColor={memberToneMap.get(item.memberId)?.textColor}
-                      />
-                      <span className="flex-1 text-sm" style={{ color: 'var(--color-ink)' }}>{item.name}</span>
-                      <span className="font-[family-name:var(--font-mono)] text-sm font-medium" style={{ color: 'var(--color-error)' }}>
+                      <span className="w-8 shrink-0 text-xs" style={{ color: 'var(--color-error)' }}>支出</span>
+                      <span className="min-w-0 flex-1 truncate text-sm" style={{ color: 'var(--color-ink)' }}>{item.name}</span>
+                      <span className="font-[family-name:var(--font-mono)] text-sm font-medium tabular-nums" style={{ color: 'var(--color-error)' }}>
                         -
                         {item.amount.toLocaleString()}
                       </span>
                     </div>
                   ))}
-                </>
-              )}
-        </div>
+                  {note && (
+                    <p className="border-t px-4 py-3 text-sm leading-6 whitespace-pre-wrap" style={{ color: 'var(--color-muted)', borderColor: 'var(--color-hairline)' }}>
+                      备注：
+                      {note}
+                    </p>
+                  )}
+                </section>
+              )
+            })}
       </div>
-
-      {memberNotes.length > 0 && (
-        <div className="mt-6">
-          <h2 className="mb-3 text-sm font-medium" style={{ color: 'var(--color-ink)' }}>成员备注</h2>
-          <div className="rounded-xl border" style={{ background: 'var(--color-surface-card)', borderColor: 'var(--color-hairline)' }}>
-            {memberNotes.map(note => (
-              <div key={note.id} className="flex items-start gap-3 border-b px-4 py-3 last:border-b-0" style={{ borderColor: 'var(--color-hairline)' }}>
-                <PublicAvatar
-                  emoji={note.memberEmoji}
-                  nickname={note.memberName}
-                  size="sm"
-                  backgroundColor={memberToneMap.get(note.memberId)?.backgroundColor}
-                  textColor={memberToneMap.get(note.memberId)?.textColor}
-                />
-                <div className="min-w-0 flex-1">
-                  <div className="mb-1 text-xs" style={{ color: 'var(--color-muted)' }}>
-                    {note.memberName || '成员'}
-                  </div>
-                  <p className="text-sm leading-6 whitespace-pre-wrap" style={{ color: 'var(--color-ink)' }}>
-                    {note.note}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
 
       <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <DialogContent>
