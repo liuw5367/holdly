@@ -11,6 +11,7 @@ import {
   calcSubscriptionCostRange,
   calcSubscriptionDailyCost,
 } from '~/lib/cost'
+import { formatExpiryCountdown } from '~/lib/expiry'
 import { isSubscriptionActive } from '~/lib/subscription-status'
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -330,7 +331,7 @@ export async function getDashboardData(userId: string): Promise<DashboardData> {
 
   // 7. 即将到期（30 天内）
   const thirtyDaysLater = format(addDays(today, 30), 'yyyy-MM-dd')
-  const expiring: DashboardData['expiring'] = []
+  const expiringWithDays: (DashboardData['expiring'][number] & { daysLeft: number })[] = []
 
   // 订阅到期
   for (const a of activeAssets) {
@@ -361,12 +362,13 @@ export async function getDashboardData(userId: string): Promise<DashboardData> {
       const expiryDate = subDays(new Date(`${nextRenewalStr}T00:00:00`), 1)
       const expiryStr = format(expiryDate, 'yyyy-MM-dd')
       const daysLeft = Math.ceil((expiryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
-      expiring.push({
+      expiringWithDays.push({
         id: a.id,
         emoji: a.emoji,
         name: a.name,
-        detail: `订阅 · ${expiryStr} 到期（${daysLeft} 天后）`,
+        detail: `订阅 · ${expiryStr} 到期（${formatExpiryCountdown(daysLeft)}）`,
         reminderEnabled: a.reminderEnabled ?? false,
+        daysLeft,
       })
     }
   }
@@ -391,20 +393,19 @@ export async function getDashboardData(userId: string): Promise<DashboardData> {
     if (!asset)
       continue
     const daysLeft = Math.ceil((new Date(w.endDate).getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
-    expiring.push({
+    expiringWithDays.push({
       id: asset.id,
       emoji: asset.emoji,
       name: asset.name,
-      detail: `保修 · ${w.endDate} 到期（${daysLeft} 天后）`,
+      detail: `保修 · ${w.endDate} 到期（${formatExpiryCountdown(daysLeft)}）`,
       reminderEnabled: asset.reminderEnabled ?? false,
+      daysLeft,
     })
   }
 
-  expiring.sort((a, b) => {
-    const daysA = Number.parseInt(a.detail.match(/(\d+) 天后/)?.[1] || '999')
-    const daysB = Number.parseInt(b.detail.match(/(\d+) 天后/)?.[1] || '999')
-    return daysA - daysB
-  })
+  // 排序使用原始天数，展示文案变化不应影响到期顺序。
+  expiringWithDays.sort((a, b) => a.daysLeft - b.daysLeft)
+  const expiring = expiringWithDays.map(({ daysLeft: _daysLeft, ...item }) => item)
 
   return {
     kpi: {
