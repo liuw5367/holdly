@@ -1,7 +1,8 @@
 import type { Route } from './+types/assets.$id.trade-in'
 import { IconCheck } from '@tabler/icons-react'
-import { useRef, useState } from 'react'
-import { data, redirect, useLoaderData, useSubmit } from 'react-router'
+import { useEffect, useRef, useState } from 'react'
+import { data, redirect, useActionData, useLoaderData, useNavigation, useSubmit } from 'react-router'
+import { toast } from 'sonner'
 import { AssetForm } from '~/components/asset-form'
 import { SubPageHeader } from '~/components/page-header'
 import { DatePicker } from '~/components/ui/date-picker'
@@ -10,12 +11,10 @@ import { Label } from '~/components/ui/label'
 import {
   getAssetById,
   getCategoriesByUserId,
-  getOrCreateTradeInTag,
   getPaymentAccountsByUserId,
   getPaymentTypesByUserId,
   getTagsByUserId,
-  linkTradedFromAsset,
-  markAssetAsTradedIn,
+  tradeInAsset,
 } from '~/db/queries/assets'
 
 import { createSupabaseServerClient } from '~/lib/supabase.server'
@@ -52,61 +51,45 @@ export async function action({ request, params }: Route.ActionArgs) {
   const tradeInPrice = (formData.get('tradeInPrice') as string) || '0'
   const tradeInDate = (formData.get('tradeInDate') as string) || new Date().toISOString().split('T')[0]
 
-  // 1. 标记旧资产为已换购（不再软删除）
-  await markAssetAsTradedIn(params.id, userId, tradeInPrice, tradeInDate)
-
-  // 2. 获取/创建「以旧换新购买」标签
-  const tradeInTag = await getOrCreateTradeInTag(userId)
-
-  // 3. 创建新资产
-  const { createAsset } = await import('~/db/queries/assets')
-  const assetType = (formData.get('assetType') as 'one_time' | 'subscription') || 'one_time'
   const tagIds = formData.getAll('tagIds').map(String)
-  // 自动添加以旧换新标签
-  if (!tagIds.includes(tradeInTag.id))
-    tagIds.push(tradeInTag.id)
 
-  const baseData = {
-    userId,
-    name: formData.get('name') as string,
-    emoji: (formData.get('emoji') as string) || '📦',
-    categoryId: formData.get('categoryId') as string,
-    assetType,
-    paymentTypeId: (formData.get('paymentTypeId') as string) || undefined,
-    paymentAccountId: (formData.get('paymentAccountId') as string) || undefined,
-    notes: (formData.get('notes') as string) || undefined,
-    tagIds,
+  try {
+    const newAssetId = await tradeInAsset({
+      oldAssetId: params.id,
+      userId,
+      name: String(formData.get('name') || '').trim(),
+      emoji: String(formData.get('emoji') || '📦'),
+      categoryId: String(formData.get('categoryId') || ''),
+      listPrice: String(formData.get('newPrice') || ''),
+      tradeInPrice,
+      tradeInDate,
+      paymentTypeId: String(formData.get('paymentTypeId') || '') || undefined,
+      paymentAccountId: String(formData.get('paymentAccountId') || '') || undefined,
+      notes: String(formData.get('notes') || '') || undefined,
+      tagIds,
+    })
+    return redirect(`/assets/${newAssetId}`, { headers })
   }
-
-  const newAssetId = await createAsset(
-    assetType === 'one_time'
-      ? {
-          ...baseData,
-          purchasePrice: formData.get('newPrice') as string,
-          purchaseDate: tradeInDate,
-        }
-      : {
-          ...baseData,
-          subscriptionPrice: (formData.get('subscriptionPrice') as string) || undefined,
-          billingCycle: (formData.get('billingCycle') as 'monthly' | 'quarterly' | 'yearly') || undefined,
-          subscriptionStartDate: (formData.get('subscriptionStartDate') as string) || undefined,
-        },
-  )
-
-  // 4. 关联新旧资产
-  await linkTradedFromAsset(newAssetId, params.id)
-
-  return redirect(`/assets/${newAssetId}`, { headers })
+  catch (error) {
+    return data({ ok: false, error: error instanceof Error ? error.message : '换新失败' }, { status: 400, headers })
+  }
 }
 
 export default function AssetsTradeIn() {
   const { asset, categories, tags, paymentTypes, paymentAccounts } = useLoaderData<typeof loader>()
+  const actionData = useActionData<typeof action>()
   const submit = useSubmit()
+  const navigation = useNavigation()
   const submitRef = useRef<HTMLButtonElement>(null)
 
   const [tradeInPrice, setTradeInPrice] = useState('')
   const [newPrice, setNewPrice] = useState('')
   const [tradeInDate, setTradeInDate] = useState(() => new Date().toISOString().split('T')[0])
+
+  useEffect(() => {
+    if (actionData?.ok === false)
+      toast.error(actionData.error)
+  }, [actionData])
 
   const tradeVal = Number.parseFloat(tradeInPrice) || 0
   const newP = Number.parseFloat(newPrice) || 0
@@ -139,7 +122,7 @@ export default function AssetsTradeIn() {
         backLabel="返回"
         title="以旧换新"
         primaryAction={{
-          label: '换新',
+          label: navigation.state === 'submitting' ? '换新中...' : '换新',
           icon: IconCheck,
           onClick: () => submitRef.current?.click(),
         }}

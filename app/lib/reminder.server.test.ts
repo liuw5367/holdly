@@ -11,6 +11,7 @@ function makeAsset(overrides: Partial<typeof assets.$inferSelect>): typeof asset
     categoryId: null,
     assetType: 'subscription',
     purchasePrice: null,
+    listPrice: null,
     currentValue: null,
     purchaseDate: null,
     purchaseReceipt: null,

@@ -78,6 +78,7 @@ export const assets = pgTable('assets', {
 
   // 买断型字段
   purchasePrice: numeric('purchase_price', { precision: 12, scale: 2 }),
+  listPrice: numeric('list_price', { precision: 12, scale: 2 }),
   currentValue: numeric('current_value', { precision: 12, scale: 2 }),
   purchaseDate: date('purchase_date'),
   purchaseReceipt: text('purchase_receipt'),

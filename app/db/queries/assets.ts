@@ -13,6 +13,7 @@ import {
   warranties,
 } from '~/db/schema'
 import { belongsToAsset } from '~/lib/asset-resource'
+import { validateTradeIn } from '~/lib/trade-in'
 
 // ========== 资产列表 ==========
 
@@ -249,6 +250,103 @@ export async function getOrCreateTradeInTag(userId: string) {
     .returning()
 
   return tag
+}
+
+export interface TradeInAssetInput {
+  oldAssetId: string
+  userId: string
+  name: string
+  emoji: string
+  categoryId: string
+  listPrice: string
+  tradeInPrice: string
+  tradeInDate: string
+  paymentTypeId?: string
+  paymentAccountId?: string
+  notes?: string
+  tagIds: string[]
+}
+
+export async function tradeInAsset(input: TradeInAssetInput) {
+  return db.transaction(async (tx) => {
+    const oldAsset = await tx
+      .select()
+      .from(assets)
+      .where(and(
+        eq(assets.id, input.oldAssetId),
+        eq(assets.userId, input.userId),
+        eq(assets.assetType, 'one_time'),
+        isNull(assets.deletedAt),
+        isNull(assets.tradedInAt),
+      ))
+      .limit(1)
+      .then(rows => rows[0])
+
+    if (!oldAsset?.purchaseDate)
+      throw new Error('旧资产不存在或已完成换新')
+
+    const validation = validateTradeIn({
+      purchaseDate: oldAsset.purchaseDate,
+      tradeInDate: input.tradeInDate,
+      listPrice: input.listPrice,
+      tradeInPrice: input.tradeInPrice,
+      today: format(new Date(), 'yyyy-MM-dd'),
+    })
+    if (!validation.ok)
+      throw new Error(validation.error)
+
+    const category = await tx
+      .select({ id: categories.id })
+      .from(categories)
+      .where(and(eq(categories.id, input.categoryId), eq(categories.userId, input.userId), isNull(categories.deletedAt)))
+      .limit(1)
+      .then(rows => rows[0])
+    if (!category)
+      throw new Error('分类不存在')
+
+    const tagName = '以旧换新购买'
+    let tradeInTag = await tx
+      .select()
+      .from(tags)
+      .where(and(eq(tags.userId, input.userId), eq(tags.name, tagName), isNull(tags.deletedAt)))
+      .limit(1)
+      .then(rows => rows[0])
+    if (!tradeInTag) {
+      [tradeInTag] = await tx
+        .insert(tags)
+        .values({ userId: input.userId, name: tagName, color: '#7c6dea' })
+        .returning()
+    }
+
+    const [newAsset] = await tx
+      .insert(assets)
+      .values({
+        userId: input.userId,
+        name: input.name,
+        emoji: input.emoji,
+        categoryId: input.categoryId,
+        assetType: 'one_time',
+        purchasePrice: validation.actualCost,
+        listPrice: input.listPrice,
+        purchaseDate: input.tradeInDate,
+        paymentTypeId: input.paymentTypeId ?? null,
+        paymentAccountId: input.paymentAccountId ?? null,
+        notes: input.notes ?? null,
+        tradedFromAssetId: oldAsset.id,
+      })
+      .returning({ id: assets.id })
+
+    const tagIds = [...new Set([...input.tagIds, tradeInTag.id])]
+    if (tagIds.length)
+      await tx.insert(assetTags).values(tagIds.map(tagId => ({ assetId: newAsset.id, tagId })))
+
+    await tx
+      .update(assets)
+      .set({ tradedInAt: input.tradeInDate, tradeInPrice: input.tradeInPrice, updatedAt: new Date() })
+      .where(and(eq(assets.id, oldAsset.id), eq(assets.userId, input.userId), isNull(assets.tradedInAt)))
+
+    return newAsset.id
+  })
 }
 
 export async function getTradedFromAsset(assetId: string) {
