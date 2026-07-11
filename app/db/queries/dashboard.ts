@@ -3,6 +3,7 @@ import { addDays, addMonths, addYears, endOfMonth, format, startOfMonth, subDays
 import { and, eq, gte, isNull, lte } from 'drizzle-orm'
 import { db } from '~/db'
 import { assets, categories, warranties } from '~/db/schema'
+import { addAmounts, divideAmount, multiplyAmount, sumAmounts } from '~/lib/amount'
 import {
   calcOneTimeCostRange,
   calcOneTimeDailyCost,
@@ -278,14 +279,14 @@ export async function getDashboardData(userId: string): Promise<DashboardData> {
       continue
     if (a.subscriptionStoppedAt && a.subscriptionStoppedAt <= todayStr)
       continue
-    subscriptionDailyCost += calcSubscriptionDailyCost(Number(a.subscriptionPrice), a.billingCycle)
+    subscriptionDailyCost = addAmounts(subscriptionDailyCost, calcSubscriptionDailyCost(Number(a.subscriptionPrice), a.billingCycle))
   }
 
   let oneTimeDailyCost = 0
   for (const a of allAssets) {
     if (a.assetType !== 'one_time' || !a.purchasePrice || !a.purchaseDate || a.tradedInAt)
       continue
-    oneTimeDailyCost += calcOneTimeDailyCost(Number(a.purchasePrice), a.purchaseDate)
+    oneTimeDailyCost = addAmounts(oneTimeDailyCost, calcOneTimeDailyCost(Number(a.purchasePrice), a.purchaseDate))
   }
 
   const totalDailyCost = subscriptionDailyCost + oneTimeDailyCost
@@ -308,24 +309,20 @@ export async function getDashboardData(userId: string): Promise<DashboardData> {
       continue
     const price = Number(a.subscriptionPrice)
     if (a.billingCycle === 'monthly') {
-      subscriptionMonthlyTotal += price
-      subscriptionYearlyTotal += price * 12
+      subscriptionMonthlyTotal = addAmounts(subscriptionMonthlyTotal, price)
+      subscriptionYearlyTotal = addAmounts(subscriptionYearlyTotal, multiplyAmount(price, 12))
     }
     else if (a.billingCycle === 'quarterly') {
-      subscriptionMonthlyTotal += price / 3
-      subscriptionYearlyTotal += price * 4
+      subscriptionMonthlyTotal = addAmounts(subscriptionMonthlyTotal, divideAmount(price, 3))
+      subscriptionYearlyTotal = addAmounts(subscriptionYearlyTotal, multiplyAmount(price, 4))
     }
     else {
-      subscriptionMonthlyTotal += price / 12
-      subscriptionYearlyTotal += price
+      subscriptionMonthlyTotal = addAmounts(subscriptionMonthlyTotal, divideAmount(price, 12))
+      subscriptionYearlyTotal = addAmounts(subscriptionYearlyTotal, price)
     }
   }
 
-  const activeAssetPurchaseTotal = activeAssets.reduce((sum, item) => {
-    if (!item.purchasePrice)
-      return sum
-    return sum + Number(item.purchasePrice)
-  }, 0)
+  const activeAssetPurchaseTotal = sumAmounts(activeAssets.map(item => item.purchasePrice))
 
   // 5. 分类花费与月度趋势（按资产模型拆分）
   const catRangeStart = new Date(today.getTime() - 365 * 86400000)

@@ -1,4 +1,7 @@
+import currency from 'currency.js'
 import { differenceInCalendarMonths, differenceInDays } from 'date-fns'
+
+const RATE_OPTIONS = { precision: 8 }
 
 /**
  * 买断型资产当日持有成本（动态递减）
@@ -6,7 +9,7 @@ import { differenceInCalendarMonths, differenceInDays } from 'date-fns'
  */
 export function calcOneTimeDailyCost(purchasePrice: number, purchaseDate: string): number {
   const n = Math.max(1, differenceInDays(new Date(), new Date(purchaseDate)) + 1)
-  return purchasePrice / n
+  return currency(purchasePrice, RATE_OPTIONS).divide(n).value
 }
 
 /**
@@ -18,7 +21,7 @@ export function calcSubscriptionDailyCost(
   cycle: 'monthly' | 'quarterly' | 'yearly',
 ): number {
   const cycleDays = { monthly: 30, quarterly: 91, yearly: 365 }
-  return price / cycleDays[cycle]
+  return currency(price, RATE_OPTIONS).divide(cycleDays[cycle]).value
 }
 
 /**
@@ -60,7 +63,7 @@ export function calcOneTimeCostRange(
   let harmonic = 0
   for (let n = s; n <= nEnd; n++)
     harmonic += 1 / n
-  return purchasePrice * harmonic
+  return currency(purchasePrice, RATE_OPTIONS).multiply(harmonic).value
 }
 
 /**
@@ -88,7 +91,7 @@ export function calcSoldOneTimeCostRange(
   let harmonic = 0
   for (let n = s; n <= nEnd; n++)
     harmonic += 1 / n
-  return (purchasePrice - tradeInPrice) * harmonic
+  return currency(purchasePrice, RATE_OPTIONS).subtract(tradeInPrice).multiply(harmonic).value
 }
 
 /**
@@ -125,5 +128,5 @@ export function calcSubscriptionCostRange(
   rangeEnd: Date,
 ): number {
   const days = activeDaysInRange(rangeStart, rangeEnd, subStartDate, subEndDate)
-  return (price / 30) * days
+  return currency(price, RATE_OPTIONS).divide(30).multiply(days).value
 }
