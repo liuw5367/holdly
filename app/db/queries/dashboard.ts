@@ -11,6 +11,7 @@ import {
   calcSubscriptionCostRange,
   calcSubscriptionDailyCost,
 } from '~/lib/cost'
+import { isSubscriptionActive } from '~/lib/subscription-status'
 
 const CATEGORY_COLORS: Record<string, string> = {
   '💻': '#cc785c',
@@ -259,7 +260,7 @@ export async function getDashboardData(userId: string): Promise<DashboardData> {
   const activeAssets = allAssets.filter((a) => {
     if (a.tradedInAt)
       return false
-    if (a.assetType === 'subscription' && a.subscriptionStoppedAt)
+    if (a.assetType === 'subscription' && !isSubscriptionActive(a, todayStr))
       return false
     return true
   })
@@ -270,14 +271,9 @@ export async function getDashboardData(userId: string): Promise<DashboardData> {
   for (const a of allAssets) {
     if (a.assetType !== 'subscription' || !a.subscriptionPrice || !a.billingCycle)
       continue
-    if (a.subscriptionStatus && a.subscriptionStatus !== 'active')
-      continue
     if (a.tradedInAt)
       continue
-    const startDate = a.subscriptionStartDate || a.purchaseDate
-    if (startDate && startDate > todayStr)
-      continue
-    if (a.subscriptionStoppedAt && a.subscriptionStoppedAt <= todayStr)
+    if (!isSubscriptionActive(a, todayStr))
       continue
     subscriptionDailyCost = addAmounts(subscriptionDailyCost, calcSubscriptionDailyCost(Number(a.subscriptionPrice), a.billingCycle))
   }
@@ -298,14 +294,9 @@ export async function getDashboardData(userId: string): Promise<DashboardData> {
   for (const a of allAssets) {
     if (a.assetType !== 'subscription' || !a.subscriptionPrice || !a.billingCycle)
       continue
-    if (a.subscriptionStatus && a.subscriptionStatus !== 'active')
-      continue
     if (a.tradedInAt)
       continue
-    const startDate = a.subscriptionStartDate || a.purchaseDate
-    if (startDate && startDate > todayStr)
-      continue
-    if (a.subscriptionStoppedAt && a.subscriptionStoppedAt <= todayStr)
+    if (!isSubscriptionActive(a, todayStr))
       continue
     const price = Number(a.subscriptionPrice)
     if (a.billingCycle === 'monthly') {
@@ -343,7 +334,7 @@ export async function getDashboardData(userId: string): Promise<DashboardData> {
 
   // 订阅到期
   for (const a of activeAssets) {
-    if (a.assetType !== 'subscription' || !a.subscriptionStatus || a.subscriptionStatus !== 'active')
+    if (a.assetType !== 'subscription' || !isSubscriptionActive(a, todayStr))
       continue
 
     // 获取下次续费日：优先用 DB 存储值，否则从开始日期计算

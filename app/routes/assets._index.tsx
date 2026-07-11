@@ -20,6 +20,7 @@ import {
 } from '~/db/queries/assets'
 import { calculateAssetDurationDays, getAssetDetailPath, subAmount } from '~/lib/asset-meta'
 import { calcOneTimeDailyCost, calcSubscriptionDailyCost } from '~/lib/cost'
+import { isSubscriptionActive } from '~/lib/subscription-status'
 import { createSupabaseServerClient } from '~/lib/supabase.server'
 
 export async function loader({ request }: Route.LoaderArgs) {
@@ -49,7 +50,13 @@ export async function loader({ request }: Route.LoaderArgs) {
     else if (a.assetType === 'subscription' && a.subscriptionPrice && a.billingCycle) {
       dailyCost = calcSubscriptionDailyCost(Number(a.subscriptionPrice), a.billingCycle)
     }
-    return { ...a, dailyCost }
+    return {
+      ...a,
+      dailyCost,
+      subscriptionActive: a.assetType === 'subscription'
+        ? isSubscriptionActive(a, new Date().toISOString().slice(0, 10))
+        : false,
+    }
   })
 
   const assetTagMap: Record<string, Array<{ id: string, name: string, color: string }>> = {}
@@ -89,7 +96,7 @@ export default function AssetsIndex() {
     let results = assets.filter((a) => {
       const matchesSearch = a.name.toLowerCase().includes(search.toLowerCase())
       const ended = a.assetType === 'subscription'
-        ? a.subscriptionStatus === 'cancelled' || Boolean(a.subscriptionStoppedAt)
+        ? !a.subscriptionActive
         : Boolean(a.tradedInAt)
 
       const matchesType = !activeType

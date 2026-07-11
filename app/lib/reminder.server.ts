@@ -3,6 +3,7 @@ import { and, eq, gte, isNull, lte } from 'drizzle-orm'
 import { db } from '~/db'
 import { assets, profiles, reminderJobs, warranties } from '~/db/schema'
 import { sendEmail } from '~/lib/email.server'
+import { isSubscriptionActive } from '~/lib/subscription-status'
 
 export function calcDueDate(asset: typeof assets.$inferSelect, today = new Date()): string | null {
   const todayStr = format(today, 'yyyy-MM-dd')
@@ -58,12 +59,13 @@ export async function processUserReminders(userId: string): Promise<number> {
     .where(and(
       eq(assets.userId, userId),
       eq(assets.assetType, 'subscription'),
-      eq(assets.subscriptionStatus, 'active'),
       isNull(assets.deletedAt),
       eq(assets.reminderEnabled, true),
     ))
 
   for (const a of activeSubscriptions) {
+    if (!isSubscriptionActive(a, today))
+      continue
     const reminderDays = a.reminderSubscriptionDaysOverride ?? profile.reminderSubscriptionDays ?? 7
     const dueDate = calcDueDate(a, now)
     if (!dueDate)
