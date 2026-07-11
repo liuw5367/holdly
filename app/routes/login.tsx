@@ -2,7 +2,7 @@ import type { Route } from './+types/login'
 
 import { IconEye, IconEyeOff, IconLoader2 } from '@tabler/icons-react'
 import { useEffect, useState } from 'react'
-import { Link, redirect, useFetcher, useSearchParams } from 'react-router'
+import { Link, redirect, data as routeData, useFetcher, useSearchParams } from 'react-router'
 import { loginSchema } from '~/lib/auth.schema'
 import { getDisplayedLoginError, getPendingLoginIntent } from '~/lib/login-state'
 import { safeRedirect } from '~/lib/redirect'
@@ -45,7 +45,8 @@ export async function action({ request }: Route.ActionArgs) {
     if (error) {
       return { error: error.message }
     }
-    return { url: data.url }
+    // OAuth PKCE verifier 由 Supabase 写入 cookie，回调换取 session 时必须带回。
+    return routeData({ url: data.url }, { headers })
   }
 
   const raw = {
