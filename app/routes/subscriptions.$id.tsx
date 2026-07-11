@@ -108,6 +108,10 @@ export async function action({ request, params }: Route.ActionArgs) {
   const formData = await request.formData()
   const intent = String(formData.get('intent') || '')
 
+  const ownedAsset = await getAssetById(params.id, user.id)
+  if (!ownedAsset || ownedAsset.assetType !== 'subscription')
+    throw new Response('Not Found', { status: 404, headers })
+
   if (intent === 'cancel') {
     const stoppedAt = String(formData.get('stoppedAt') || '')
     await stopSubscription(params.id, user.id, stoppedAt)
@@ -135,9 +139,7 @@ export async function action({ request, params }: Route.ActionArgs) {
   }
 
   if (intent === 'renew') {
-    const asset = await getAssetById(params.id, user.id)
-    if (!asset || asset.assetType !== 'subscription')
-      return data({ ok: false, error: '资产不存在' }, { headers })
+    const asset = ownedAsset
     if (asset.subscriptionStatus === 'cancelled')
       return data({ ok: false, error: '已取消的订阅无法续费' }, { headers })
 

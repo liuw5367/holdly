@@ -121,6 +121,10 @@ export async function action({ request, params }: Route.ActionArgs) {
   const intent = formData.get('intent') as string
   const assetId = params.id
 
+  const asset = await getAssetById(assetId, user.id)
+  if (!asset || asset.assetType !== 'one_time')
+    throw new Response('Not Found', { status: 404, headers })
+
   if (intent === 'delete') {
     await softDeleteAsset(assetId, user.id)
     return redirect('/assets', { headers })
@@ -148,7 +152,7 @@ export async function action({ request, params }: Route.ActionArgs) {
 
   if (intent === 'update-repair') {
     const repairId = formData.get('repairId') as string
-    await updateRepairRecord(repairId, {
+    const updated = await updateRepairRecord(assetId, repairId, {
       repairDate: formData.get('repairDate') as string,
       cost: (formData.get('cost') as string) || '0',
       reason: (formData.get('reason') as string) || undefined,
@@ -156,12 +160,16 @@ export async function action({ request, params }: Route.ActionArgs) {
       result: (formData.get('result') as string) || undefined,
       isDone: formData.get('isDone') === 'true',
     })
+    if (!updated)
+      throw new Response('Not Found', { status: 404, headers })
     return data({ ok: true }, { headers })
   }
 
   if (intent === 'delete-repair') {
     const repairId = formData.get('repairId') as string
-    await deleteRepairRecord(repairId)
+    const deleted = await deleteRepairRecord(assetId, repairId)
+    if (!deleted)
+      throw new Response('Not Found', { status: 404, headers })
     return data({ ok: true }, { headers })
   }
 

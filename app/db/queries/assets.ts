@@ -12,6 +12,7 @@ import {
   tags,
   warranties,
 } from '~/db/schema'
+import { belongsToAsset } from '~/lib/asset-resource'
 
 // ========== 资产列表 ==========
 
@@ -354,7 +355,17 @@ export interface UpdateRepairRecordInput {
   isDone?: boolean
 }
 
-export async function updateRepairRecord(id: string, input: UpdateRepairRecordInput) {
+export async function updateRepairRecord(assetId: string, id: string, input: UpdateRepairRecordInput) {
+  const record = await db
+    .select({ assetId: repairRecords.assetId })
+    .from(repairRecords)
+    .where(eq(repairRecords.id, id))
+    .limit(1)
+    .then(rows => rows[0])
+
+  if (!belongsToAsset(record, assetId))
+    return false
+
   await db
     .update(repairRecords)
     .set({
@@ -365,13 +376,27 @@ export async function updateRepairRecord(id: string, input: UpdateRepairRecordIn
       result: input.result ?? null,
       isDone: input.isDone ?? true,
     })
-    .where(eq(repairRecords.id, id))
+    .where(and(eq(repairRecords.id, id), eq(repairRecords.assetId, assetId)))
+
+  return true
 }
 
-export async function deleteRepairRecord(id: string) {
+export async function deleteRepairRecord(assetId: string, id: string) {
+  const record = await db
+    .select({ assetId: repairRecords.assetId })
+    .from(repairRecords)
+    .where(eq(repairRecords.id, id))
+    .limit(1)
+    .then(rows => rows[0])
+
+  if (!belongsToAsset(record, assetId))
+    return false
+
   await db
     .delete(repairRecords)
-    .where(eq(repairRecords.id, id))
+    .where(and(eq(repairRecords.id, id), eq(repairRecords.assetId, assetId)))
+
+  return true
 }
 
 // ========== 保修信息 ==========
