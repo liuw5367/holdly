@@ -1,11 +1,11 @@
 import type { Route } from './+types/forgot-password'
 
-import { Link, useFetcher } from 'react-router'
+import { data, Link, useFetcher } from 'react-router'
 import { forgotPasswordSchema } from '~/lib/auth.schema'
 import { createSupabaseServerClient } from '~/lib/supabase.server'
 
 export async function action({ request }: Route.ActionArgs) {
-  const { supabase } = createSupabaseServerClient(request)
+  const { supabase, headers } = createSupabaseServerClient(request)
   const formData = await request.formData()
 
   const raw = { email: formData.get('email') }
@@ -22,7 +22,8 @@ export async function action({ request }: Route.ActionArgs) {
     return { error: error.message }
   }
 
-  return { success: true }
+  // 密码恢复同样使用 PKCE，邮件回调前必须把 verifier 保存在浏览器 cookie 中。
+  return data({ success: true }, { headers })
 }
 
 export default function ForgotPassword() {

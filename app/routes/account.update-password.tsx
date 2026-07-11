@@ -1,328 +1,144 @@
 import type { Route } from './+types/account.update-password'
 
-import { IconEye, IconEyeOff } from '@tabler/icons-react'
+import { IconEye, IconEyeOff, IconLoader2 } from '@tabler/icons-react'
 import { useState } from 'react'
-import { Link, redirect, useFetcher } from 'react-router'
-import { z } from 'zod'
+import { data, redirect, useFetcher, useLoaderData } from 'react-router'
+import { SubPageHeader } from '~/components/page-header'
+import { Button } from '~/components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '~/components/ui/card'
+import { Field, FieldError, FieldGroup, FieldLabel } from '~/components/ui/field'
+import { Input } from '~/components/ui/input'
 import { createSupabaseServerClient } from '~/lib/supabase.server'
+import { updatePasswordSchema } from '~/lib/update-password.schema'
 
-const updatePasswordSchema = z
-  .object({
-    password: z.string().min(1, '请输入新密码').min(8, '密码至少 8 位'),
-    confirmPassword: z.string().min(1, '请确认密码'),
-  })
-  .refine(data => data.password === data.confirmPassword, {
-    message: '两次输入的密码不一致',
-    path: ['confirmPassword'],
-  })
+interface PasswordInputProps extends React.ComponentProps<typeof Input> {
+  visible: boolean
+  onToggleVisibility: () => void
+}
+
+function PasswordInput({ visible, onToggleVisibility, ...props }: PasswordInputProps) {
+  return (
+    <div className="relative">
+      <Input {...props} type={visible ? 'text' : 'password'} className="pr-10" />
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-sm"
+        className="absolute top-1/2 right-2 -translate-y-1/2 text-muted-foreground"
+        aria-label={visible ? '隐藏密码' : '显示密码'}
+        onClick={onToggleVisibility}
+      >
+        {visible ? <IconEyeOff /> : <IconEye />}
+      </Button>
+    </div>
+  )
+}
 
 export async function loader({ request }: Route.LoaderArgs) {
   const { supabase, headers } = createSupabaseServerClient(request)
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) {
+  if (!user)
     return redirect('/login', { headers })
-  }
-  return new Response(null, { headers })
+
+  const requestedMode = new URL(request.url).searchParams.get('mode')
+  const hasPassword = user.identities?.some(identity => identity.provider === 'email') ?? false
+  if (requestedMode === 'change' && !hasPassword)
+    return redirect('/settings/account', { headers })
+
+  return data({
+    mode: requestedMode === 'change' ? 'change' as const : 'recovery' as const,
+    email: user.email || '',
+  }, { headers })
 }
 
 export async function action({ request }: Route.ActionArgs) {
   const { supabase, headers } = createSupabaseServerClient(request)
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) {
+  if (!user)
     return redirect('/login', { headers })
-  }
 
   const formData = await request.formData()
-  const raw = {
+  const parsed = updatePasswordSchema.safeParse({
+    mode: formData.get('mode'),
+    oldPassword: formData.get('oldPassword') || undefined,
     password: formData.get('password'),
     confirmPassword: formData.get('confirmPassword'),
-  }
+  })
+  if (!parsed.success)
+    return data({ error: parsed.error.issues[0].message }, { headers })
 
-  const parsed = updatePasswordSchema.safeParse(raw)
-  if (!parsed.success) {
-    return { error: parsed.error.issues[0].message }
+  if (parsed.data.mode === 'change') {
+    if (!user.email)
+      return data({ error: '当前账户没有可验证的登录邮箱' }, { headers })
+
+    // Supabase 不提供单独的旧密码校验接口，重新登录可在改密前确认用户凭据。
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email: user.email,
+      password: parsed.data.oldPassword!,
+    })
+    if (signInError) {
+      const message = signInError.message === 'Invalid login credentials' ? '旧密码不正确' : signInError.message
+      return data({ error: message }, { headers })
+    }
   }
 
   const { error } = await supabase.auth.updateUser({ password: parsed.data.password })
-  if (error) {
-    return { error: error.message }
-  }
+  if (error)
+    return data({ error: error.message }, { headers })
 
-  return { success: true }
+  return redirect('/settings/account?passwordChanged=1', { headers })
 }
 
-export default function UpdatePassword() {
-  const fetcher = useFetcher<{ error?: string, success?: boolean }>()
-  const [showPassword, setShowPassword] = useState(false)
+export default function UpdatePasswordPage() {
+  const { mode } = useLoaderData<typeof loader>()
+  const fetcher = useFetcher<typeof action>()
+  const [showPasswords, setShowPasswords] = useState(false)
   const isSubmitting = fetcher.state !== 'idle'
-
-  if (fetcher.data?.success) {
-    return (
-      <div
-        style={{
-          minHeight: '100dvh',
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'center',
-          alignItems: 'center',
-          padding: '48px 24px 32px',
-          textAlign: 'center',
-          background: 'var(--color-canvas)',
-        }}
-      >
-        <div style={{ width: '100%', maxWidth: 360 }}>
-          <div
-            style={{
-              fontFamily: 'var(--font-display)',
-              fontSize: 42,
-              color: 'var(--color-primary)',
-              marginBottom: 20,
-            }}
-          >
-            Holdly
-          </div>
-          <div
-            style={{
-              background: 'var(--color-surface-card)',
-              borderRadius: 16,
-              padding: 24,
-            }}
-          >
-            <p style={{ fontSize: 16, fontWeight: 600, color: 'var(--color-ink)' }}>
-              密码已更新
-            </p>
-            <p style={{ fontSize: 14, color: 'var(--color-muted)', marginTop: 8 }}>
-              你可以用新密码继续使用 Holdly。
-            </p>
-            <Link to="/dashboard">
-              <button
-                type="button"
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  height: 44,
-                  padding: '12px 20px',
-                  width: '100%',
-                  marginTop: 16,
-                  background: 'var(--color-primary)',
-                  color: '#fff',
-                  fontSize: 15,
-                  fontWeight: 600,
-                  borderRadius: 10,
-                  border: 'none',
-                  cursor: 'pointer',
-                  transition: 'background 0.15s, transform 0.1s',
-                }}
-                onMouseEnter={e => (e.currentTarget.style.background = 'var(--color-primary-active)')}
-                onMouseLeave={e => (e.currentTarget.style.background = 'var(--color-primary)')}
-                onMouseDown={e => (e.currentTarget.style.transform = 'scale(0.98)')}
-                onMouseUp={e => (e.currentTarget.style.transform = 'scale(1)')}
-              >
-                进入应用
-              </button>
-            </Link>
-          </div>
-        </div>
-      </div>
-    )
-  }
+  const error = fetcher.data && 'error' in fetcher.data ? fetcher.data.error : undefined
 
   return (
-    <div
-      style={{
-        minHeight: '100dvh',
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'center',
-        alignItems: 'center',
-        padding: '48px 24px 32px',
-        textAlign: 'center',
-        background: 'var(--color-canvas)',
-      }}
-    >
-      <div style={{ width: '100%', maxWidth: 360 }}>
-        <div
-          style={{
-            fontFamily: 'var(--font-display)',
-            fontSize: 42,
-            color: 'var(--color-primary)',
-            marginBottom: 20,
-          }}
-        >
-          Holdly
-        </div>
-        <div
-          style={{
-            fontFamily: 'var(--font-display)',
-            fontSize: 22,
-            color: 'var(--color-ink)',
-            lineHeight: 1.3,
-            marginBottom: 8,
-          }}
-        >
-          设置新密码
-        </div>
-        <p style={{ fontSize: 13, color: 'var(--color-muted)', marginBottom: 32 }}>
-          输入你想要的新密码，至少 8 位。
-        </p>
+    <div className="pb-8">
+      <SubPageHeader backTo="/settings/account" backLabel="账户设置" title="修改密码" />
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, textAlign: 'left' }}>
-          {fetcher.data?.error && (
-            <div
-              style={{
-                borderRadius: 8,
-                padding: '10px 12px',
-                textAlign: 'center',
-                fontSize: 14,
-                background: 'color-mix(in srgb, var(--color-error) 10%, transparent)',
-                color: 'var(--color-error)',
-              }}
-            >
-              {fetcher.data.error}
-            </div>
-          )}
+      <fetcher.Form method="post" className="mt-4">
+        <input type="hidden" name="mode" value={mode} />
+        <Card>
+          <CardHeader>
+            <CardTitle>{mode === 'change' ? '更新登录密码' : '设置新密码'}</CardTitle>
+            <CardDescription>
+              {mode === 'change' ? '验证当前密码后，设置至少 8 位的新密码。' : '为你的账户设置至少 8 位的新密码。'}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <FieldGroup>
+              {mode === 'change' && (
+                <Field>
+                  <FieldLabel htmlFor="oldPassword">旧密码</FieldLabel>
+                  <PasswordInput id="oldPassword" name="oldPassword" visible={showPasswords} onToggleVisibility={() => setShowPasswords(value => !value)} autoComplete="current-password" required />
+                </Field>
+              )}
 
-          <fetcher.Form method="post" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <div>
-              <label
-                style={{
-                  display: 'block',
-                  fontSize: 12,
-                  fontWeight: 500,
-                  color: 'var(--color-muted)',
-                  marginBottom: 6,
-                }}
-              >
-                新密码
-              </label>
-              <div style={{ position: 'relative' }}>
-                <input
-                  name="password"
-                  type={showPassword ? 'text' : 'password'}
-                  placeholder="至少 8 位"
-                  style={{
-                    width: '100%',
-                    height: 44,
-                    padding: '0 40px 0 12px',
-                    background: 'var(--color-canvas)',
-                    border: '1px solid var(--color-hairline)',
-                    borderRadius: 10,
-                    fontSize: 15,
-                    color: 'var(--color-ink)',
-                    outline: 'none',
-                    transition: 'border-color 0.15s, box-shadow 0.15s',
-                  }}
-                  onFocus={(e) => {
-                    e.currentTarget.style.borderColor = 'var(--color-primary)'
-                    e.currentTarget.style.boxShadow = '0 0 0 3px var(--color-primary-muted)'
-                  }}
-                  onBlur={(e) => {
-                    e.currentTarget.style.borderColor = 'var(--color-hairline)'
-                    e.currentTarget.style.boxShadow = 'none'
-                  }}
-                  required
-                  minLength={8}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  style={{
-                    position: 'absolute',
-                    right: 12,
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    background: 'none',
-                    border: 'none',
-                    color: 'var(--color-muted)',
-                    cursor: 'pointer',
-                    padding: 0,
-                    display: 'flex',
-                    alignItems: 'center',
-                  }}
-                >
-                  {showPassword
-                    ? (
-                        <IconEyeOff size={18} />
-                      )
-                    : (
-                        <IconEye size={18} />
-                      )}
-                </button>
-              </div>
-            </div>
+              <Field>
+                <FieldLabel htmlFor="password">新密码</FieldLabel>
+                <PasswordInput id="password" name="password" visible={showPasswords} onToggleVisibility={() => setShowPasswords(value => !value)} autoComplete="new-password" minLength={8} required />
+              </Field>
 
-            <div>
-              <label
-                style={{
-                  display: 'block',
-                  fontSize: 12,
-                  fontWeight: 500,
-                  color: 'var(--color-muted)',
-                  marginBottom: 6,
-                }}
-              >
-                确认新密码
-              </label>
-              <input
-                name="confirmPassword"
-                type="password"
-                placeholder="再次输入新密码"
-                style={{
-                  width: '100%',
-                  height: 44,
-                  padding: '0 12px',
-                  background: 'var(--color-canvas)',
-                  border: '1px solid var(--color-hairline)',
-                  borderRadius: 10,
-                  fontSize: 15,
-                  color: 'var(--color-ink)',
-                  outline: 'none',
-                  transition: 'border-color 0.15s, box-shadow 0.15s',
-                }}
-                onFocus={(e) => {
-                  e.currentTarget.style.borderColor = 'var(--color-primary)'
-                  e.currentTarget.style.boxShadow = '0 0 0 3px var(--color-primary-muted)'
-                }}
-                onBlur={(e) => {
-                  e.currentTarget.style.borderColor = 'var(--color-hairline)'
-                  e.currentTarget.style.boxShadow = 'none'
-                }}
-                required
-                minLength={8}
-              />
-            </div>
+              <Field>
+                <FieldLabel htmlFor="confirmPassword">确认新密码</FieldLabel>
+                <PasswordInput id="confirmPassword" name="confirmPassword" visible={showPasswords} onToggleVisibility={() => setShowPasswords(value => !value)} autoComplete="new-password" minLength={8} required />
+              </Field>
 
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                height: 44,
-                padding: '12px 20px',
-                width: '100%',
-                background: 'var(--color-primary)',
-                color: '#fff',
-                fontSize: 15,
-                fontWeight: 600,
-                borderRadius: 10,
-                border: 'none',
-                cursor: 'pointer',
-                opacity: isSubmitting ? 0.6 : 1,
-                transition: 'background 0.15s, transform 0.1s',
-              }}
-              onMouseEnter={e => (e.currentTarget.style.background = 'var(--color-primary-active)')}
-              onMouseLeave={e => (e.currentTarget.style.background = 'var(--color-primary)')}
-              onMouseDown={e => (e.currentTarget.style.transform = 'scale(0.98)')}
-              onMouseUp={e => (e.currentTarget.style.transform = 'scale(1)')}
-            >
-              {isSubmitting ? '更新中...' : '更新密码'}
-            </button>
-          </fetcher.Form>
-        </div>
-      </div>
+              {error && <FieldError>{error}</FieldError>}
+
+            </FieldGroup>
+          </CardContent>
+        </Card>
+
+        <Button type="submit" className="mt-4 w-full" disabled={isSubmitting}>
+          {isSubmitting && <IconLoader2 data-icon="inline-start" className="animate-spin" />}
+          {isSubmitting ? '更新中...' : '更新密码'}
+        </Button>
+      </fetcher.Form>
     </div>
   )
 }

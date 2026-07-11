@@ -35,6 +35,7 @@ export default [
     route('plans/:id/records/:month', 'routes/plans.$id.records.$month.tsx'),
     route('plans/:id/records/:month/edit', 'routes/plans.$id.records.$month.edit.tsx'),
     route('settings', 'routes/settings.tsx'),
+    route('settings/account', 'routes/settings.account.tsx'),
     route('settings/categories', 'routes/settings/categories.tsx'),
     route('settings/tags', 'routes/settings/tags.tsx'),
     route('settings/payment-types', 'routes/settings/payment-types.tsx'),

@@ -46,6 +46,7 @@ routes.ts
     ├── plans/:id/records/:month           → plans.$id.records.$month.tsx
     ├── plans/:id/records/:month/edit      → plans.$id.records.$month.edit.tsx
     ├── settings                   → settings.tsx
+    ├── settings/account           → settings.account.tsx
     ├── settings/categories        → settings/categories.tsx
     ├── settings/tags              → settings/tags.tsx
     ├── settings/payment-types     → settings/payment-types.tsx
@@ -152,6 +153,8 @@ Supabase client 每请求创建（`app/lib/supabase.server.ts`），通过 cooki
 ```
 
 注册邮件确认同样回调 `/auth/callback`。注册 action 使用 `emailRedirectTo=/auth/callback?registered=1`，callback 成功换取 session 后跳转 `/dashboard?registered=1`，Dashboard 显示一次注册成功提示并清理 query。
+
+密码恢复和 OAuth-only 账户设置密码同样使用 PKCE。发信 action 必须把 Supabase 写入的 verifier cookie 带回浏览器，邮件链接经 `/auth/callback` 换取 session 后进入 `/account/update-password`。账户内修改密码则先用旧密码重新认证，再更新密码。
 
 ## 数据库约定
 

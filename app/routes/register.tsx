@@ -2,7 +2,7 @@ import type { Route } from './+types/register'
 
 import { IconEye, IconEyeOff, IconLoader2 } from '@tabler/icons-react'
 import { useState } from 'react'
-import { Link, redirect, useFetcher } from 'react-router'
+import { Link, redirect, data as routeData, useFetcher } from 'react-router'
 import { registerSchema } from '~/lib/auth.schema'
 import { createSupabaseServerClient } from '~/lib/supabase.server'
 
@@ -51,7 +51,8 @@ export async function action({ request }: Route.ActionArgs) {
     return redirect('/dashboard?registered=1', { headers })
   }
 
-  return { success: true }
+  // 邮箱确认使用 PKCE，回调前必须把 verifier 保存在浏览器 cookie 中。
+  return routeData({ success: true }, { headers })
 }
 
 export default function Register() {

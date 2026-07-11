@@ -3,8 +3,6 @@ import {
   IconCheck,
   IconChevronRight,
   IconDeviceDesktop,
-  IconLoader2,
-  IconLogout,
   IconMoon,
   IconPencil,
   IconSun,
@@ -69,11 +67,6 @@ export async function action({ request }: Route.ActionArgs) {
   const formData = await request.formData()
   const intent = String(formData.get('intent') || '')
 
-  if (intent === 'logout') {
-    await supabase.auth.signOut()
-    return redirect('/login', { headers })
-  }
-
   if (intent === 'update_profile') {
     const displayName = String(formData.get('displayName') || '').trim()
     const avatarEmoji = String(formData.get('avatarEmoji') || '').trim()
@@ -103,7 +96,6 @@ const modes = [
 export default function SettingsPage() {
   const { profile, counts } = useLoaderData<typeof loader>()
   const profileFetcher = useFetcher<typeof action>()
-  const logoutFetcher = useFetcher<typeof action>()
 
   const [displayName, setDisplayName] = useState(profile.displayName)
   const [avatarEmoji, setAvatarEmoji] = useState(profile.avatarEmoji)
@@ -127,7 +119,6 @@ export default function SettingsPage() {
       toast.error(profileFetcher.data.error)
   }, [profileFetcher.data])
 
-  const isLoggingOut = logoutFetcher.state !== 'idle'
   const currentTheme: 'system' | 'light' | 'dark'
     = theme === 'light' || theme === 'dark' || theme === 'system'
       ? theme
@@ -263,6 +254,23 @@ export default function SettingsPage() {
           className="mb-3 text-sm font-medium uppercase tracking-wide"
           style={{ color: 'var(--color-muted-soft)' }}
         >
+          账户
+        </h2>
+        <Link
+          to="/settings/account"
+          className="flex items-center justify-between rounded-2xl px-4 py-3.5 transition-colors hover:opacity-85"
+          style={{ backgroundColor: 'var(--color-surface-card)' }}
+        >
+          <span className="text-sm" style={{ color: 'var(--color-ink)' }}>账户设置</span>
+          <IconChevronRight size={18} style={{ color: 'var(--color-muted-soft)' }} />
+        </Link>
+      </section>
+
+      <section className="mb-8">
+        <h2
+          className="mb-3 text-sm font-medium uppercase tracking-wide"
+          style={{ color: 'var(--color-muted-soft)' }}
+        >
           数据管理
         </h2>
         <div
@@ -349,13 +357,6 @@ export default function SettingsPage() {
         </div>
       </section>
 
-      <logoutFetcher.Form method="post">
-        <input type="hidden" name="intent" value="logout" />
-        <Button type="submit" variant="destructive" className="w-full py-6">
-          {isLoggingOut ? <IconLoader2 className="animate-spin" /> : <IconLogout />}
-          退出登录
-        </Button>
-      </logoutFetcher.Form>
     </div>
   )
 }

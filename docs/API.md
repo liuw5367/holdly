@@ -20,14 +20,14 @@
 | 类型 | 说明 |
 |---|---|
 | Loader | 已登录 → redirect `/dashboard` |
-| Action | 验证 `{ displayName, email, password, confirmPassword }`，调用 `signUp`，邮件确认回跳 `/auth/callback?registered=1`。无 session 时返回 `{ success: true }`（确认邮件已发送），有 session 时 redirect `/dashboard?registered=1` |
+| Action | 验证 `{ displayName, email, password, confirmPassword }`，调用 `signUp`，邮件确认回跳 `/auth/callback?registered=1`。无 session 时通过响应 cookie 保存 PKCE verifier 并返回 `{ success: true }`，有 session 时 redirect `/dashboard?registered=1` |
 
 ### `/forgot-password`
 
 | 类型 | 说明 |
 |---|---|
 | Loader | 无 |
-| Action | 验证 email，调用 `resetPasswordForEmail`，返回 `{ success: true }` 或 `{ error }` |
+| Action | 验证 email，调用 `resetPasswordForEmail`，通过响应 cookie 保存 PKCE verifier，返回 `{ success: true }` 或 `{ error }` |
 
 ### `/auth/callback`
 
@@ -39,8 +39,8 @@
 
 | 类型 | 说明 |
 |---|---|
-| Loader | 认证检查 |
-| Action | 更新密码（用于密码重置流程） |
+| Loader | 认证检查；`?mode=change` 表示账户内改密，否则为邮件恢复模式 |
+| Action | 账户内改密先调用 `signInWithPassword` 验证旧密码，再调用 `updateUser`；邮件恢复模式直接更新密码；成功 redirect `/settings/account?passwordChanged=1` |
 
 ---
 
@@ -332,8 +332,15 @@
 | 类型 | 说明 |
 |---|---|
 | Loader | 返回 `{ profile: { displayName, email, avatarEmoji }, counts }` |
-| Action `logout` | `supabase.auth.signOut()`，redirect `/login` |
 | Action `update_profile` | 更新 `displayName` + `avatarEmoji` |
+
+### `GET/POST /settings/account`
+
+| 类型 | 说明 |
+|---|---|
+| Loader | 返回 `{ email, hasPassword }` |
+| Action `send_password_email` | OAuth-only 账户发送密码设置邮件，并通过响应 cookie 保存 PKCE verifier |
+| Action `logout` | `supabase.auth.signOut()`，redirect `/login` |
 
 ### `GET /settings/reminders`
 
