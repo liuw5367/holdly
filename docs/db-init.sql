@@ -71,6 +71,7 @@ CREATE TABLE IF NOT EXISTS public.assets (
 
   -- 买断型字段
   purchase_price NUMERIC(12, 2),
+  list_price NUMERIC(12, 2),
   current_value NUMERIC(12, 2),
   purchase_date DATE,
   purchase_receipt TEXT,

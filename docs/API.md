@@ -142,8 +142,8 @@
 | `delete` | — | 软删除资产，redirect `/assets` |
 | `sell` | `tradeInPrice`, `tradedInAt` | 标记资产为已卖出（`tradedInAt` + `tradeInPrice`）|
 | `add-repair` | `repairDate`, `cost`, `reason`, `vendor`, `result`, `isDone` | 创建维修记录 |
-| `update-repair` | `repairId` + 同上字段 | 更新维修记录 |
-| `delete-repair` | `repairId` | 删除维修记录（硬删除）|
+| `update-repair` | `repairId` + 同上字段 | 更新当前资产的维修记录；不属于该资产时返回 404 |
+| `delete-repair` | `repairId` | 删除当前资产的维修记录（硬删除）；不属于该资产时返回 404 |
 | `upsert-warranty` | `startDate`, `endDate`, `notes` | 创建或更新保修信息 |
 
 ### `POST /assets/new`
@@ -165,7 +165,7 @@
 | 类型 | 说明 |
 |---|---|
 | Loader | 返回旧资产 + 表单下拉数据 |
-| Action | 标记旧资产为已换新，创建新资产，关联新旧，自动添加「以旧换新购买」标签，成功 → redirect 新资产详情 |
+| Action | 校验父资产、日期与金额；在事务中创建新资产、关联新旧、添加换新标签并标记旧资产；成功后 redirect 新资产详情 |
 
 **action 参数**：`tradeInPrice`（回收价）、`tradeInDate`（换新日期）、新资产表单字段
 
@@ -289,7 +289,7 @@
 
 | 类型 | 说明 |
 |---|---|
-| Loader | 返回月度记录详情（items + memberNotes + members）|
+| Loader | 返回月度记录详情（items + memberNotes + members + currentUserId），客户端按成员派生分组和小计 |
 | Action `delete-record` | 需 `confirmMonth` 匹配，软删除记录，redirect `/plans/:id` |
 
 ### `POST /plans/:id/records/:month/edit`

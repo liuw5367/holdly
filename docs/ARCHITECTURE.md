@@ -255,6 +255,7 @@ Supabase client 每请求创建（`app/lib/supabase.server.ts`），通过 cooki
 | `category_id` | UUID | 分类 ID |
 | `asset_type` | TEXT ENUM | `one_time` / `subscription` |
 | `purchase_price` | NUMERIC(12,2) | 买断购入价 |
+| `list_price` | NUMERIC(12,2) | 换新设备原始标价，普通资产可为空 |
 | `current_value` | NUMERIC(12,2) | 当前估价 |
 | `purchase_date` | DATE | 购入日期 |
 | `purchase_receipt` | TEXT | 凭证（文本，非文件） |
@@ -297,6 +298,8 @@ Supabase client 每请求创建（`app/lib/supabase.server.ts`），通过 cooki
 | `created_at` / `updated_at` | TIMESTAMPTZ | |
 
 **`repair_records`** — 维修记录（**硬删除**，唯一例外）
+
+维修、保修和续费写操作必须先验证父资产属于当前用户且未软删除。维修更新和删除同时以 `repair_id + asset_id` 定位，禁止仅凭子资源 ID 修改。
 
 | 字段 | 类型 | 说明 |
 |---|---|---|
@@ -529,6 +532,12 @@ useEffect(() => {
 - **邮件发送**：通过 Resend API（`app/lib/email.server.ts`），需要 `RESEND_API_KEY` 环境变量
 - **提醒类型**：订阅续费到期、保修到期
 - **配置层级**：全局默认（设置页）→ 单资产覆盖（资产/订阅详情页）
+- **开关层级**：全局关闭直接短路；全局开启后再检查单资产开关
+- **时间边界**：单次任务生成一个 `today` 并传入日期纯函数，Cron 和手动检查共用实现
+
+## 月计划成员分组
+
+`plan_record_items.member_id` 表示金额归属成员。读取层通过纯函数按成员生成收入项、支出项、收入合计、支出合计和净额；这些合计为派生数据，不写回数据库。详情页隐藏无条目的成员，编辑页保留所有当前成员用于新增条目。当前用户优先，其余成员按计划成员顺序，已退出成员的历史条目排在最后。
 
 ## 数据备份
 
