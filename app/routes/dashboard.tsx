@@ -54,14 +54,14 @@ export default function Dashboard() {
   }, [searchParams, setSearchParams])
 
   const kpis = [
-    { label: '每日成本', value: kpi.dailyCostTotal.toFixed(2), subtitle: '元/天' },
+    { label: '今日持有成本', value: `¥${kpi.dailyCostTotal.toFixed(2)}`, subtitle: '按当前持有状态折算' },
     {
-      label: '订阅费用',
-      value: kpi.subscriptionMonthlyTotal.toFixed(2),
-      subtitle: '元/月',
+      label: '每月订阅支出',
+      value: `¥${kpi.subscriptionMonthlyTotal.toFixed(2)}`,
+      subtitle: '活跃订阅月度折算',
     },
-    { label: '资产数量', value: String(kpi.activeAssetCount), subtitle: '活跃资产' },
-    { label: '资产总额', value: kpi.activeAssetPurchaseTotal.toLocaleString(), subtitle: '购入价总和' },
+    { label: '当前持有数量', value: String(kpi.activeAssetCount), subtitle: '仍在持有的资产与订阅' },
+    { label: '持有资产原值', value: `¥${kpi.activeAssetPurchaseTotal.toLocaleString()}`, subtitle: '买断资产购入价总和' },
   ]
 
   const renderStatsToggle = () => (
@@ -151,7 +151,7 @@ export default function Dashboard() {
             className="text-[15px] font-medium"
             style={{ color: 'var(--color-ink)' }}
           >
-            分类花费分布
+            近一年成本分布
           </h2>
           {renderStatsToggle()}
         </div>
@@ -181,6 +181,7 @@ export default function Dashboard() {
                         </div>
                       </div>
                       <span className="w-[56px] shrink-0 text-right text-[13px]" style={{ color: 'var(--color-body)' }}>
+                        ¥
                         {cat.amount.toLocaleString()}
                       </span>
                       <span className="w-[36px] shrink-0 text-right text-[12px]" style={{ color: 'var(--color-muted-soft)' }}>
@@ -206,7 +207,7 @@ export default function Dashboard() {
             className="text-[15px] font-medium"
             style={{ color: 'var(--color-ink)' }}
           >
-            月度趋势
+            近六个月成本趋势
           </h2>
           {renderStatsToggle()}
         </div>

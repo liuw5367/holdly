@@ -71,7 +71,7 @@ export default function AppShell() {
 
       {/* Main Content */}
       <main className="flex-1 pb-20 md:ml-[220px] md:pb-6">
-        <div className="mx-auto max-w-[640px] px-4 md:max-w-[800px] md:px-8">
+        <div className={`mx-auto max-w-[640px] px-4 md:px-8 ${location.pathname === '/dashboard' ? 'md:max-w-[960px]' : 'md:max-w-[800px]'}`}>
           <Outlet />
         </div>
       </main>
