@@ -1,6 +1,6 @@
 'use client'
 
-import { IconChevronLeft, IconChevronRight } from '@tabler/icons-react'
+import { IconChevronDown, IconChevronLeft, IconChevronRight } from '@tabler/icons-react'
 import * as React from 'react'
 import { DayPicker } from 'react-day-picker'
 import { buttonVariants } from '~/components/ui/button'
@@ -17,7 +17,9 @@ function CalendarChevron({
 } & React.SVGProps<SVGSVGElement>) {
   if (orientation === 'left')
     return <IconChevronLeft className={cn('h-4 w-4', className)} {...props} />
-  return <IconChevronRight className={cn('h-4 w-4', className)} {...props} />
+  if (orientation === 'right')
+    return <IconChevronRight className={cn('h-4 w-4', className)} {...props} />
+  return <IconChevronDown className={cn('h-4 w-4', className)} {...props} />
 }
 
 function Calendar({
@@ -34,7 +36,10 @@ function Calendar({
         months: 'flex flex-col gap-3 sm:flex-row',
         month: 'space-y-3',
         month_caption: 'relative flex items-center justify-center pt-1',
-        caption_label: 'text-sm font-medium text-[var(--color-ink)]',
+        dropdowns: 'flex items-center justify-center gap-1.5',
+        dropdown_root: 'relative rounded-md border border-[var(--color-hairline)] bg-[var(--color-canvas)]',
+        dropdown: 'absolute inset-0 cursor-pointer opacity-0',
+        caption_label: 'flex h-7 items-center gap-1 px-2 text-sm font-medium text-[var(--color-ink)]',
         nav: 'flex items-center gap-1',
         button_previous: cn(
           buttonVariants({ variant: 'ghost', size: 'icon-sm' }),

@@ -9,6 +9,9 @@ import { Calendar } from '~/components/ui/calendar'
 import { Popover, PopoverContent, PopoverTrigger } from '~/components/ui/popover'
 import { cn } from '~/lib/utils'
 
+const calendarStartMonth = new Date(1900, 0)
+const calendarEndMonth = new Date(new Date().getFullYear() + 100, 11)
+
 interface DatePickerProps {
   value?: string
   onChange: (value: string) => void
@@ -60,6 +63,9 @@ function DatePicker({
       >
         <Calendar
           mode="single"
+          captionLayout="dropdown"
+          startMonth={calendarStartMonth}
+          endMonth={calendarEndMonth}
           selected={selectedDate}
           locale={zhCN}
           onSelect={(date) => {

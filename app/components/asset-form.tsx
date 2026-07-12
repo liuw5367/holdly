@@ -1,6 +1,6 @@
 import type { AssetFormValues } from '~/lib/asset.schema'
 import { IconLoader2 } from '@tabler/icons-react'
-import { addMonths, addYears, isAfter } from 'date-fns'
+import { addMonths, addYears, format, isAfter } from 'date-fns'
 import EmojiPicker from 'emoji-picker-react'
 import { useMemo, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
@@ -231,7 +231,7 @@ export function AssetForm({
       else
         next = addYears(next, 1)
     }
-    return next.toISOString().split('T')[0]
+    return format(next, 'yyyy-MM-dd')
   }, [isSubscription, selectedPurchaseDate, selectedBillingCycle])
 
   return (
@@ -460,11 +460,6 @@ export function AssetForm({
                 </Select>
                 <FieldError>{fieldError('billingCycle')}</FieldError>
               </Field>
-
-              <Field>
-                <FieldLabel>下次续费日期（自动计算）</FieldLabel>
-                <Input readOnly value={nextRenewalPreview || '请先选择订阅日期和周期'} />
-              </Field>
             </>
           )}
 
@@ -485,6 +480,13 @@ export function AssetForm({
             />
             <FieldError>{fieldError('purchaseDate')}</FieldError>
           </Field>
+
+          {isSubscription && (
+            <Field>
+              <FieldLabel>下次续费日期（自动计算）</FieldLabel>
+              <Input readOnly value={nextRenewalPreview || '请先选择订阅日期和周期'} />
+            </Field>
+          )}
 
           {children}
 
