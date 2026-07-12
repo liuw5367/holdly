@@ -398,6 +398,15 @@ text-align: center
 - 居中布局：icon/插图 + 标题（16px ink）+ 描述（14px muted）+ CTA 按钮
 - 背景 `surface-card`，圆角 `radius-xl`，padding 32px
 
+### 13.4 按钮与切换控件交互状态
+
+- 主按钮 hover 使用 `primary-active`，保持白色文字。
+- 普通 `outline`、`ghost` 按钮 hover 使用 `primary/10` 浅底和 `primary` 文字，避免回退到中性灰色。
+- 切换控件未选中项沿用普通按钮的主题色 hover；选中样式由具体组件语义决定。
+- 危险操作保持 `destructive` 语义色，不套用主题色 hover。
+- 纯展示型 Badge、状态标签不因 hover 改变颜色；只有可点击元素提供 hover 反馈。
+- 禁用控件不响应 hover，并维持清晰的禁用视觉状态。
+
 ---
 
 ## 14. Do / Don't

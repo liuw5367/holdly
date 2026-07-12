@@ -31,7 +31,7 @@ function Calendar({
   return (
     <DayPicker
       showOutsideDays={showOutsideDays}
-      className={cn('bg-[var(--color-canvas)] p-3', className)}
+      className={cn('relative bg-[var(--color-canvas)] p-3', className)}
       classNames={{
         months: 'flex flex-col gap-3 sm:flex-row',
         month: 'space-y-3',
@@ -40,14 +40,14 @@ function Calendar({
         dropdown_root: 'relative rounded-md border border-[var(--color-hairline)] bg-[var(--color-canvas)]',
         dropdown: 'absolute inset-0 cursor-pointer opacity-0',
         caption_label: 'flex h-7 items-center gap-1 px-2 text-sm font-medium text-[var(--color-ink)]',
-        nav: 'flex items-center gap-1',
+        nav: 'pointer-events-none absolute inset-x-3 top-4 z-10 flex items-center justify-between',
         button_previous: cn(
           buttonVariants({ variant: 'ghost', size: 'icon-sm' }),
-          'absolute left-1 h-7 w-7 border border-[var(--color-hairline)] bg-[var(--color-canvas)] p-0 opacity-80 hover:opacity-100',
+          'pointer-events-auto h-7 w-7 border border-[var(--color-hairline)] bg-[var(--color-canvas)] p-0 opacity-80 hover:opacity-100',
         ),
         button_next: cn(
           buttonVariants({ variant: 'ghost', size: 'icon-sm' }),
-          'absolute right-1 h-7 w-7 border border-[var(--color-hairline)] bg-[var(--color-canvas)] p-0 opacity-80 hover:opacity-100',
+          'pointer-events-auto h-7 w-7 border border-[var(--color-hairline)] bg-[var(--color-canvas)] p-0 opacity-80 hover:opacity-100',
         ),
         month_grid: 'w-full border-collapse',
         weekdays: 'flex',
