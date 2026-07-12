@@ -44,6 +44,18 @@ SUPABASE_ANON_KEY=your-anon-key
 
 本地开发时需额外添加 `http://localhost:5173/auth/callback`。
 
+#### 密码恢复邮件模板
+
+在 Supabase Dashboard → Authentication → Email Templates → Reset password 中，将重置链接改为直接携带 token hash：
+
+```html
+<a href="{{ .SiteURL }}/auth/callback?token_hash={{ .TokenHash }}&type=recovery&next=%2Faccount%2Fupdate-password">
+  设置新密码
+</a>
+```
+
+不要使用默认的 `{{ .ConfirmationURL }}`。默认链接的 PKCE code 只能由保存了 verifier cookie 的发信浏览器交换；`token_hash` 回调允许用户从邮件客户端、其他浏览器或其他设备完成密码设置。
+
 ### 4. OAuth 提供商（可选）
 
 在 Authentication → Providers 中启用：

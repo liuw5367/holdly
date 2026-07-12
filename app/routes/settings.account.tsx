@@ -42,7 +42,7 @@ export async function action({ request }: Route.ActionArgs) {
     if (error)
       return data({ success: false, error: error.message }, { headers })
 
-    // OAuth-only 账户通过邮件建立密码，PKCE verifier 必须随响应写入 cookie。
+    // 恢复邮件使用 token_hash 回调；响应仍需保留 SSR 客户端产生的认证 cookie。
     return data({ success: true, error: undefined }, { headers })
   }
 

@@ -27,13 +27,13 @@
 | 类型 | 说明 |
 |---|---|
 | Loader | 无 |
-| Action | 验证 email，调用 `resetPasswordForEmail`，通过响应 cookie 保存 PKCE verifier，返回 `{ success: true }` 或 `{ error }` |
+| Action | 验证 email，调用 `resetPasswordForEmail`，返回 `{ success: true }` 或 `{ error }`；恢复邮件模板携带 `token_hash` |
 
 ### `/auth/callback`
 
 | 类型 | 说明 |
 |---|---|
-| Loader | 交换 OAuth / 邮箱确认 code 为 session，成功 → redirect `/dashboard`（或 `?next=`）；带 `registered=1` 时 redirect `/dashboard?registered=1`，失败 → `/login?error=` |
+| Loader | OAuth / 邮箱确认使用 PKCE code 换取 session；密码恢复使用邮件中的 `token_hash` 调用 `verifyOtp(type: recovery)`，避免依赖发信浏览器的 verifier cookie。成功 → redirect `/dashboard`（或 `?next=`）；带 `registered=1` 时 redirect `/dashboard?registered=1`，失败 → `/login?error=` |
 
 ### `/account/update-password`
 
@@ -339,7 +339,7 @@
 | 类型 | 说明 |
 |---|---|
 | Loader | 返回 `{ email, hasPassword }` |
-| Action `send_password_email` | OAuth-only 账户发送密码设置邮件，并通过响应 cookie 保存 PKCE verifier |
+| Action `send_password_email` | OAuth-only 账户发送密码设置邮件；恢复邮件模板携带 `token_hash` |
 | Action `logout` | `supabase.auth.signOut()`，redirect `/login` |
 
 ### `GET /settings/reminders`

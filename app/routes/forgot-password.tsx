@@ -22,7 +22,7 @@ export async function action({ request }: Route.ActionArgs) {
     return { error: error.message }
   }
 
-  // 密码恢复同样使用 PKCE，邮件回调前必须把 verifier 保存在浏览器 cookie 中。
+  // 保留 SSR 客户端写入的认证 cookie；恢复邮件通过 token_hash 完成跨浏览器回调。
   return data({ success: true }, { headers })
 }
 
