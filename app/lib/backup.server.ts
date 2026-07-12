@@ -4,6 +4,7 @@ import * as XLSX from 'xlsx'
 import { db } from '~/db'
 import { getAssetTagsByUserId } from '~/db/queries/assets'
 import { assets, categories, paymentAccounts, paymentTypes, planMembers, planRecordItems, planRecordMemberNotes, planRecords, plans, profiles } from '~/db/schema'
+import { renderEmailLayout } from '~/lib/email-template.server'
 import { sendEmail } from '~/lib/email.server'
 
 export async function generateExportXlsx(userId: string): Promise<Uint8Array> {
@@ -334,18 +335,22 @@ export async function generateBackupHtml(userId: string): Promise<string> {
 
   const assetNameMap = new Map(assetRows.map(a => [a.id, a.name]))
 
-  let html = '<html><head><meta charset="utf-8"><style>'
-  html += 'body{font-family:sans-serif;color:#333;padding:20px}'
-  html += 'h2{margin-top:30px;color:#555}'
-  html += 'table{border-collapse:collapse;width:100%;margin-bottom:20px;font-size:13px}'
-  html += 'th,td{border:1px solid #ddd;padding:6px 10px;text-align:left;white-space:nowrap}'
-  html += 'th{background:#f5f5f5;font-weight:600}'
-  html += '.num{text-align:right}'
-  html += '</style></head><body>'
-  html += `<h1>Holdly 数据备份 - ${new Date().toISOString().slice(0, 10)}</h1>`
+  const backupDate = new Date().toISOString().slice(0, 10)
+  const headStyles = [
+    '.backup-title{margin:0 0 6px;font-size:24px;line-height:32px;color:#292722}',
+    '.backup-date{margin:0 0 20px;font-size:13px;line-height:20px;color:#817c72}',
+    '.backup-section{margin:24px 0 10px;font-size:17px;line-height:24px;color:#5f5746}',
+    '.backup-table{border-collapse:collapse;width:100%;margin-bottom:16px;font-size:11px;line-height:16px}',
+    '.backup-table th,.backup-table td{border:1px solid #ded9cf;padding:4px 6px;text-align:left;white-space:nowrap}',
+    '.backup-table th{background:#f3efe7;color:#5f5746;font-weight:600}',
+    '.backup-table tr:nth-child(even) td{background:#fbfaf7}',
+    '.backup-table .num{text-align:right;font-variant-numeric:tabular-nums}',
+  ].join('')
+  let html = '<h1 class="backup-title">数据备份</h1>'
+  html += `<p class="backup-date">备份日期：${backupDate}</p>`
 
   // ===== 资产列表 =====
-  html += '<h2>资产列表</h2><table><thead><tr>'
+  html += '<h2 class="backup-section">资产列表</h2><table class="backup-table"><thead><tr>'
   const assetHeaders = ['名称', 'Emoji', '类型', '分类', '标签', '购入价', '当前估价', '购入日期', '订阅价', '计费周期', '下次续费日', '订阅开始日', '支付类型', '支付账户', '备注', '状态', '卖出日期', '卖出价格', '旧资产', '创建时间', '更新时间']
   for (const h of assetHeaders)
     html += `<th>${esc(h)}</th>`
@@ -443,7 +448,7 @@ export async function generateBackupHtml(userId: string): Promise<string> {
       name: memberNameMap.get(m.userId)!,
     }))
 
-    html += `<h2>计划-${esc(plan.name)}</h2><table><thead><tr>`
+    html += `<h2 class="backup-section">计划：${esc(plan.name)}</h2><table class="backup-table"><thead><tr>`
     html += '<th>年月</th><th>模式</th>'
     for (const colKey of itemColumnKeys)
       html += `<th>${esc(itemColumns.get(colKey)!)}</th>`
@@ -490,10 +495,15 @@ export async function generateBackupHtml(userId: string): Promise<string> {
     html += '</tbody></table>'
   }
 
-  html += '<p style="margin-top:40px;color:#999;font-size:12px">由 Holdly 自动生成</p>'
-  html += '</body></html>'
+  html += '<p style="margin:20px 0 0;color:#969087;font-size:12px;line-height:20px;">此备份包含你在 Holdly 中保存的资产和计划数据，请妥善保管。</p>'
 
-  return html
+  return renderEmailLayout({
+    title: `Holdly 数据备份 - ${backupDate}`,
+    preheader: `${backupDate} 的 Holdly 数据备份`,
+    content: html,
+    headStyles,
+    variant: 'wide',
+  })
 }
 
 export async function processUserBackup(userId: string): Promise<number> {

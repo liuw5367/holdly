@@ -87,6 +87,7 @@ app/
 │   ├── auth.schema.ts       # 认证表单 Zod schema
 │   ├── plan.schema.ts       # 计划表单 Zod schema
 │   ├── backup.server.ts     # 数据导出 XLSX + 备份邮件 HTML 生成
+│   ├── email-template.server.ts # Resend 邮件品牌外壳与提醒模板
 │   └── email.server.ts      # Resend 邮件发送
 ├── routes.ts                # 路由配置（React Router v7 config-based）
 ├── routes/                  # 路由文件（loader/action/component）
@@ -533,6 +534,7 @@ useEffect(() => {
 
 - **Cron 端点**：`/api/cron/send-reminders`（`app/routes/api.cron.send-reminders.tsx`），每日 UTC 08:00 触发，也支持用户手动触发
 - **邮件发送**：通过 Resend API（`app/lib/email.server.ts`），需要 `RESEND_API_KEY` 环境变量
+- **邮件模板**：应用直接发送的邮件共用 `app/lib/email-template.server.ts` 品牌外壳；提醒使用 560px 标准版，含大表格的数据备份使用 1200px 紧凑宽版
 - **提醒类型**：订阅续费到期、保修到期
 - **配置层级**：全局默认（设置页）→ 单资产覆盖（资产/订阅详情页）
 - **开关层级**：全局关闭直接短路；全局开启后再检查单资产开关

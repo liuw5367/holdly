@@ -206,8 +206,9 @@ POST https://api.resend.com/emails
 
 邮件模板：
 
-- 订阅续费提醒：`「{asset_name}」即将于 {due_date} 续费（{amount}元），请确保账户余额充足。`
-- 保修到期提醒：`「{asset_name}」的保修将于 {due_date} 到期，如需续保请及时处理。`
+- 订阅续费提醒：显示订阅名称、续费日期和金额，并提醒用户确认支付账户余额。
+- 保修到期提醒：显示资产名称和保修到期日，并提醒用户及时处理续保或保修服务。
+- HTML 邮件共用 `app/lib/email-template.server.ts` 的 Holdly 品牌外壳，同时保留纯文本版本作为兼容回退。
 
 收件人：`profile.email`
 

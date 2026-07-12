@@ -82,9 +82,11 @@ describe('processUserReminders delivery accounting', () => {
         userId: 'user-1',
         name: 'Test Subscription',
         subscriptionPrice: '10.00',
+        subscriptionStatus: 'active',
         nextRenewalDate: '2026-06-06',
         subscriptionStartDate: null,
-        purchaseDate: null,
+        subscriptionStoppedAt: null,
+        purchaseDate: '2026-01-01',
         billingCycle: 'monthly',
         reminderSubscriptionDaysOverride: null,
       }],
@@ -96,6 +98,10 @@ describe('processUserReminders delivery accounting', () => {
     const { processUserReminders } = await import('./reminder.server')
 
     await expect(processUserReminders('user-1')).resolves.toBe(0)
+    expect(mockSendEmail).toHaveBeenCalledWith(expect.objectContaining({
+      html: expect.stringContaining('订阅续费提醒'),
+      text: expect.stringContaining('Test Subscription'),
+    }))
     expect(mockInsertValues).not.toHaveBeenCalled()
   })
 })

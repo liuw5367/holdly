@@ -2,6 +2,7 @@ import { addMonths, addYears, format, subDays } from 'date-fns'
 import { and, eq, gte, isNull, lte } from 'drizzle-orm'
 import { db } from '~/db'
 import { assets, profiles, reminderJobs, warranties } from '~/db/schema'
+import { renderReminderEmail } from '~/lib/email-template.server'
 import { sendEmail } from '~/lib/email.server'
 import { isSubscriptionActive } from '~/lib/subscription-status'
 
@@ -96,6 +97,13 @@ export async function processUserReminders(userId: string): Promise<number> {
       to: profile.email,
       subject: `「${a.name}」即将续费`,
       text: `你好，「${a.name}」将于 ${dueDate} 续费（${a.subscriptionPrice || ''}元），请确保账户余额充足。`,
+      html: renderReminderEmail({
+        title: '订阅续费提醒',
+        description: `「${a.name}」即将续费，请提前确认付款信息。`,
+        label: '续费日期',
+        value: `${dueDate}${a.subscriptionPrice ? ` · ${a.subscriptionPrice} 元` : ''}`,
+        note: '请确保支付账户余额充足。如已取消订阅，可以忽略这封邮件。',
+      }),
     })
 
     if (!delivery.ok)
@@ -154,6 +162,13 @@ export async function processUserReminders(userId: string): Promise<number> {
       to: profile.email,
       subject: `「${a.name}」保修即将到期`,
       text: `你好，「${a.name}」的保修将于 ${w.endDate} 到期，如需续保请及时处理。`,
+      html: renderReminderEmail({
+        title: '保修到期提醒',
+        description: `「${a.name}」的保修即将到期。`,
+        label: '保修到期日',
+        value: w.endDate,
+        note: '如需续保或申请保修服务，请在到期前及时处理。',
+      }),
     })
 
     if (!delivery.ok)
