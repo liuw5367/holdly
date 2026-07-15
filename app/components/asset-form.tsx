@@ -171,8 +171,6 @@ export function AssetForm({
       fd.append('subscriptionPrice', data.subscriptionPrice || '')
       fd.append('billingCycle', data.billingCycle || '')
       fd.append('purchaseDate', selectedPurchaseDate || '')
-      if (data.purchaseReceipt)
-        fd.append('purchaseReceipt', data.purchaseReceipt)
       fd.append('subscriptionStartDate', data.subscriptionStartDate || selectedPurchaseDate || '')
     }
     else {
@@ -180,6 +178,8 @@ export function AssetForm({
       if (data.currentValue)
         fd.append('currentValue', data.currentValue)
       fd.append('purchaseDate', selectedPurchaseDate || '')
+      if (data.purchaseReceipt)
+        fd.append('purchaseReceipt', data.purchaseReceipt)
     }
 
     onSubmit(fd)

@@ -1,15 +1,15 @@
 import type { Route } from './+types/subscriptions._index'
-import { IconCalendar, IconPencil, IconRepeat } from '@tabler/icons-react'
+import { IconCalendar, IconLoader2, IconPencil, IconRepeat } from '@tabler/icons-react'
 import currency from 'currency.js'
 import { useMemo, useState } from 'react'
-import { data, Link, redirect, useLoaderData } from 'react-router'
+import { data, Form, Link, redirect, useLoaderData, useNavigation } from 'react-router'
 import { EmptyState } from '~/components/empty-state'
 import { MainPageHeader } from '~/components/page-header'
 import { Badge } from '~/components/ui/badge'
 import { Button } from '~/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '~/components/ui/card'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '~/components/ui/select'
-import { getCategoriesByUserId, getPaymentAccountsByUserId, getSubscriptionsByUserId } from '~/db/queries/assets'
+import { getAssetById, getCategoriesByUserId, getPaymentAccountsByUserId, getSubscriptionsByUserId, resumeSubscription } from '~/db/queries/assets'
 import { formatInteger, getBillingCycleLabel } from '~/lib/asset-meta'
 import { getRenewalWindow, toMonthlySubscriptionCost, toYearlySubscriptionCost } from '~/lib/subscription-renewal'
 import { createSupabaseServerClient } from '~/lib/supabase.server'
@@ -27,11 +27,28 @@ export async function loader({ request }: Route.LoaderArgs) {
   return data({ subscriptions, categories, paymentAccounts, today: new Date().toISOString().slice(0, 10) }, { headers })
 }
 
-type StatusFilter = 'all' | 'active' | 'cancelled'
+export async function action({ request }: Route.ActionArgs) {
+  const { supabase, headers } = createSupabaseServerClient(request)
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user)
+    throw redirect('/login', { headers })
+  const formData = await request.formData()
+  const id = String(formData.get('id') || '')
+  if (!id)
+    return data({ ok: false }, { status: 400, headers })
+  const subscription = await getAssetById(id, user.id)
+  if (!subscription || subscription.assetType !== 'subscription' || subscription.subscriptionStatus !== 'cancelled')
+    throw new Response('Not Found', { status: 404, headers })
+  await resumeSubscription(id, user.id)
+  return data({ ok: true }, { headers })
+}
+
+type StatusFilter = 'all' | 'active' | 'cancelled' | 'expired'
 type WindowFilter = 'all' | 'overdue' | 'seven_days' | 'thirty_days' | 'later'
 
 export default function SubscriptionsIndex() {
   const { subscriptions, categories, paymentAccounts, today } = useLoaderData<typeof loader>()
+  const navigation = useNavigation()
   const [status, setStatus] = useState<StatusFilter>('all')
   const [window, setWindow] = useState<WindowFilter>('all')
   const [categoryId, setCategoryId] = useState('all')
@@ -65,6 +82,10 @@ export default function SubscriptionsIndex() {
       return false
     if (status === 'cancelled' && isActive)
       return false
+    if (status === 'cancelled' && item.subscriptionStatus === 'expired')
+      return false
+    if (status === 'expired' && item.subscriptionStatus !== 'expired')
+      return false
     const itemWindow = getRenewalWindow(item.nextRenewalDate, today)
     if (window !== 'all' && itemWindow !== window)
       return false
@@ -88,11 +109,11 @@ export default function SubscriptionsIndex() {
         <Summary label="活动订阅" value={`${active.length}`} />
         <Summary label="月度预计" value={formatCurrencyGroups(monthlyCost)} />
         <Summary label="年度预计" value={formatCurrencyGroups(yearlyCost)} />
-        <Summary label="需关注" value={`${counts.overdue + counts.seven_days}`} detail={`${counts.overdue} 逾期 · ${counts.seven_days} 七天内`} />
+        <Summary label="需关注" value={`${counts.overdue + counts.seven_days + counts.thirty_days}`} detail={`${counts.overdue} 逾期 · ${counts.seven_days} 七天内 · ${counts.thirty_days} 三十天内`} />
       </div>
 
       <div className="mt-5 grid grid-cols-2 gap-2 md:grid-cols-4">
-        <Filter value={status} onChange={value => setStatus(value as StatusFilter)} options={[['all', '全部状态'], ['active', '活动中'], ['cancelled', '已停止']]} />
+        <Filter value={status} onChange={value => setStatus(value as StatusFilter)} options={[['all', '全部状态'], ['active', '活动中'], ['cancelled', '已停止'], ['expired', '已过期']]} />
         <Filter value={window} onChange={value => setWindow(value as WindowFilter)} options={[['all', '全部时间'], ['overdue', '已逾期'], ['seven_days', '7 天内'], ['thirty_days', '8–30 天'], ['later', '30 天后']]} />
         <Filter value={categoryId} onChange={setCategoryId} options={[['all', '全部分类'], ...categories.map(item => [item.id, `${item.emoji} ${item.name}`])]} />
         <Filter value={paymentAccountId} onChange={setPaymentAccountId} options={[['all', '全部账户'], ...paymentAccounts.map(item => [item.id, item.name])]} />
@@ -101,6 +122,7 @@ export default function SubscriptionsIndex() {
       <div className="mt-4 flex flex-col gap-2">
         {filtered.map((item) => {
           const isActive = item.subscriptionStatus === 'active' && !item.subscriptionStoppedAt
+          const isResuming = navigation.state !== 'idle' && navigation.formData?.get('id') === item.id
           const renewalWindow = getRenewalWindow(item.nextRenewalDate, today)
           return (
             <Card key={item.id} size="sm">
@@ -133,6 +155,22 @@ export default function SubscriptionsIndex() {
                       确认续费
                     </Button>
                   )}
+                  {isActive
+                    ? <Button size="sm" variant="secondary" render={<Link to={`/subscriptions/${item.id}?cancel=1`} />}>停止</Button>
+                    : item.subscriptionStatus === 'cancelled' && (
+                      <Form method="post">
+                        <input type="hidden" name="id" value={item.id} />
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          type="submit"
+                          disabled={isResuming}
+                        >
+                          {isResuming && <IconLoader2 className="animate-spin" data-icon="inline-start" />}
+                          {isResuming ? '恢复中' : '恢复'}
+                        </Button>
+                      </Form>
+                    )}
                   <Button size="icon-sm" variant="ghost" aria-label="编辑订阅" render={<Link to={`/subscriptions/${item.id}/edit`} />}><IconPencil /></Button>
                 </div>
               </CardContent>

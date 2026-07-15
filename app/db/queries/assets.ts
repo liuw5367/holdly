@@ -1,4 +1,4 @@
-import { addMonths, addYears, format } from 'date-fns'
+import { format } from 'date-fns'
 import { and, desc, eq, isNull } from 'drizzle-orm'
 import { db } from '~/db'
 import {
@@ -14,6 +14,7 @@ import {
   warranties,
 } from '~/db/schema'
 import { belongsToAsset } from '~/lib/asset-resource'
+import { advanceRenewalDate } from '~/lib/subscription-renewal'
 import { validateTradeIn } from '~/lib/trade-in'
 
 // ========== 资产列表 ==========
@@ -173,10 +174,8 @@ export interface CreateAssetInput {
 
 export async function createAsset(input: CreateAssetInput) {
   const { tagIds, ...data } = input
-
-  const [asset] = await db
-    .insert(assets)
-    .values({
+  return db.transaction(async (tx) => {
+    const [asset] = await tx.insert(assets).values({
       userId: data.userId,
       name: data.name,
       emoji: data.emoji,
@@ -193,27 +192,23 @@ export async function createAsset(input: CreateAssetInput) {
       paymentTypeId: data.paymentTypeId ?? null,
       paymentAccountId: data.paymentAccountId ?? null,
       notes: data.notes ?? null,
-    })
-    .returning({ id: assets.id })
+    }).returning({ id: assets.id })
 
-  if (tagIds && tagIds.length > 0) {
-    await db
-      .insert(assetTags)
-      .values(tagIds.map(tagId => ({ assetId: asset.id, tagId })))
-  }
+    if (tagIds && tagIds.length > 0)
+      await tx.insert(assetTags).values(tagIds.map(tagId => ({ assetId: asset.id, tagId })))
 
-  if (data.assetType === 'one_time' && data.currentValue !== undefined) {
-    await db.insert(assetValueRecords).values({
-      userId: data.userId,
-      assetId: asset.id,
-      value: data.currentValue,
-      valuedOn: data.purchaseDate || format(new Date(), 'yyyy-MM-dd'),
-      source: 'baseline',
-      notes: '创建资产时填写的初始估值',
-    })
-  }
-
-  return asset.id
+    if (data.assetType === 'one_time' && data.currentValue !== undefined) {
+      await tx.insert(assetValueRecords).values({
+        userId: data.userId,
+        assetId: asset.id,
+        value: data.currentValue,
+        valuedOn: data.purchaseDate || format(new Date(), 'yyyy-MM-dd'),
+        source: 'baseline',
+        notes: '创建资产时填写的初始估值',
+      })
+    }
+    return asset.id
+  })
 }
 
 // ========== 更新资产 ==========
@@ -239,13 +234,12 @@ export interface UpdateAssetInput {
 
 export async function updateAsset(id: string, userId: string, input: UpdateAssetInput) {
   const { tagIds, ...data } = input
-  const existing = await getAssetById(id, userId)
-  if (!existing)
-    return
+  return db.transaction(async (tx) => {
+    const [existing] = await tx.select().from(assets).where(and(eq(assets.id, id), eq(assets.userId, userId), isNull(assets.deletedAt))).limit(1)
+    if (!existing)
+      return false
 
-  await db
-    .update(assets)
-    .set({
+    await tx.update(assets).set({
       name: data.name,
       emoji: data.emoji,
       categoryId: data.categoryId,
@@ -262,27 +256,24 @@ export async function updateAsset(id: string, userId: string, input: UpdateAsset
       paymentAccountId: data.paymentAccountId ?? null,
       notes: data.notes ?? null,
       updatedAt: new Date(),
-    })
-    .where(and(eq(assets.id, id), eq(assets.userId, userId)))
+    }).where(and(eq(assets.id, id), eq(assets.userId, userId)))
 
-  // 更新标签关联（先删后插）
-  await db.delete(assetTags).where(eq(assetTags.assetId, id))
-  if (tagIds && tagIds.length > 0) {
-    await db
-      .insert(assetTags)
-      .values(tagIds.map(tagId => ({ assetId: id, tagId })))
-  }
+    await tx.delete(assetTags).where(eq(assetTags.assetId, id))
+    if (tagIds && tagIds.length > 0)
+      await tx.insert(assetTags).values(tagIds.map(tagId => ({ assetId: id, tagId })))
 
-  if (data.assetType === 'one_time' && data.currentValue !== undefined && data.currentValue !== existing.currentValue) {
-    await db.insert(assetValueRecords).values({
-      userId,
-      assetId: id,
-      value: data.currentValue,
-      valuedOn: format(new Date(), 'yyyy-MM-dd'),
-      source: 'manual',
-      notes: '编辑资产时更新估值',
-    })
-  }
+    if (data.assetType === 'one_time' && data.currentValue !== undefined && data.currentValue !== existing.currentValue) {
+      await tx.insert(assetValueRecords).values({
+        userId,
+        assetId: id,
+        value: data.currentValue,
+        valuedOn: format(new Date(), 'yyyy-MM-dd'),
+        source: 'manual',
+        notes: '编辑资产时更新估值',
+      })
+    }
+    return true
+  })
 }
 
 // ========== 软删除资产 ==========
@@ -774,14 +765,7 @@ export async function createRenewal(
       confirmationKey,
     })
 
-    const nextRenewalDate = format(
-      asset.billingCycle === 'monthly'
-        ? addMonths(new Date(`${startDate}T00:00:00`), 1)
-        : asset.billingCycle === 'quarterly'
-          ? addMonths(new Date(`${startDate}T00:00:00`), 3)
-          : addYears(new Date(`${startDate}T00:00:00`), 1),
-      'yyyy-MM-dd',
-    )
+    const nextRenewalDate = advanceRenewalDate(startDate, asset.billingCycle)
     await tx.update(assets)
       .set({
         nextRenewalDate,
@@ -813,7 +797,11 @@ export async function getSubscriptionsByUserId(userId: string) {
   })
     .from(assets)
     .leftJoin(categories, eq(assets.categoryId, categories.id))
-    .leftJoin(paymentAccounts, eq(assets.paymentAccountId, paymentAccounts.id))
+    .leftJoin(paymentAccounts, and(
+      eq(assets.paymentAccountId, paymentAccounts.id),
+      eq(paymentAccounts.userId, userId),
+      isNull(paymentAccounts.deletedAt),
+    ))
     .where(and(eq(assets.userId, userId), eq(assets.assetType, 'subscription'), isNull(assets.deletedAt)))
     .orderBy(assets.nextRenewalDate, assets.name)
 }

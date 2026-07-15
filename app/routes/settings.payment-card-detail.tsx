@@ -1,8 +1,10 @@
 import type { Route } from './+types/settings.payment-card-detail'
-import { IconCreditCard, IconPencil, IconPlayerPlay, IconPlayerStop } from '@tabler/icons-react'
+import { IconCreditCard, IconLoader2, IconPencil, IconPlayerPlay, IconPlayerStop } from '@tabler/icons-react'
 import currency from 'currency.js'
+import { useState } from 'react'
 import { data, Link, redirect, useLoaderData, useNavigation, useSubmit } from 'react-router'
 import { SubPageHeader } from '~/components/page-header'
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '~/components/ui/alert-dialog'
 import { Badge } from '~/components/ui/badge'
 import { Button } from '~/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '~/components/ui/card'
@@ -51,19 +53,22 @@ export default function PaymentCardDetail() {
   const { account, subscriptions, dates, today } = useLoaderData<typeof loader>()
   const submit = useSubmit()
   const navigation = useNavigation()
+  const [confirmOpen, setConfirmOpen] = useState(false)
   const activeSubscriptions = subscriptions.filter(item => item.subscriptionStatus === 'active' && !item.subscriptionStoppedAt)
   const next30 = new Date(`${today}T00:00:00`).getTime() + 30 * 86400000
   const expected = activeSubscriptions.reduce((total, item) => {
     if (!item.nextRenewalDate || !item.subscriptionPrice)
       return total
     const due = new Date(`${item.nextRenewalDate}T00:00:00`).getTime()
-    return due <= next30 ? currency(total).add(item.subscriptionPrice).value : total
+    const todayTimestamp = new Date(`${today}T00:00:00`).getTime()
+    return due >= todayTimestamp && due <= next30 ? currency(total).add(item.subscriptionPrice).value : total
   }, 0)
 
   function toggleActive() {
     const formData = new FormData()
     formData.set('isActive', String(!account.isActive))
     submit(formData, { method: 'post' })
+    setConfirmOpen(false)
   }
 
   return (
@@ -141,10 +146,29 @@ export default function PaymentCardDetail() {
           个活动订阅已更换支付账户。
         </p>
       )}
-      <Button className="mt-3 w-full" variant={account.isActive ? 'destructive' : 'secondary'} onClick={toggleActive} disabled={navigation.state !== 'idle'}>
-        {account.isActive ? <IconPlayerStop data-icon="inline-start" /> : <IconPlayerPlay data-icon="inline-start" />}
-        {account.isActive ? '停用信用卡' : '恢复使用'}
+      <Button className="mt-3 w-full" variant={account.isActive ? 'destructive' : 'secondary'} onClick={() => account.isActive ? setConfirmOpen(true) : toggleActive()} disabled={navigation.state !== 'idle'}>
+        {navigation.state !== 'idle'
+          ? <IconLoader2 className="animate-spin" data-icon="inline-start" />
+          : account.isActive ? <IconPlayerStop data-icon="inline-start" /> : <IconPlayerPlay data-icon="inline-start" />}
+        {navigation.state !== 'idle' ? '保存中' : account.isActive ? '停用信用卡' : '恢复使用'}
       </Button>
+
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>停用这张信用卡？</AlertDialogTitle>
+            <AlertDialogDescription>
+              {activeSubscriptions.length > 0
+                ? `仍有 ${activeSubscriptions.length} 个活动订阅使用这张卡。停用不会移除已有关系，但新建订阅时无法再选择。`
+                : '停用不会删除信用卡资料或历史关联，之后可以恢复使用。'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel variant="secondary">取消</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" onClick={toggleActive}>确认停用</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

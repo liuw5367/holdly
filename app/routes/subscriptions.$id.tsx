@@ -151,8 +151,8 @@ export async function action({ request, params }: Route.ActionArgs) {
     const notes = String(formData.get('notes') || '').trim()
     const updateExpectedPrice = formData.get('updateExpectedPrice') === 'true'
 
-    if (!price || Number(price) <= 0)
-      return data({ ok: false, error: '金额必须大于 0' }, { headers })
+    if (price === '' || Number(price) < 0)
+      return data({ ok: false, error: '金额不能小于 0' }, { headers })
     const result = await createRenewal(params.id, user.id, { price, notes: notes || undefined, updateExpectedPrice })
     if (result.status === 'duplicate')
       return data({ ok: false, error: '这个周期已经确认过续费' }, { status: 409, headers })
@@ -180,7 +180,7 @@ export default function SubscriptionDetailPage() {
     renewals,
   } = useLoaderData<typeof loader>()
   const actionData = useActionData<typeof action>()
-  const [searchParams, setSearchParams] = useSearchParams()
+  const [searchParams] = useSearchParams()
 
   const navigate = useNavigate()
   const submit = useSubmit()
@@ -195,7 +195,7 @@ export default function SubscriptionDetailPage() {
   const nextRenewalDate = asset.nextRenewalDate
 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
-  const [cancelDialogOpen, setCancelDialogOpen] = useState(false)
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(() => searchParams.get('cancel') === '1')
   const [cancelDate, setCancelDate] = useState(todayDate)
   const [reminderDialogOpen, setReminderDialogOpen] = useState(false)
   const [reminderEnabled, setReminderEnabled] = useState(asset.reminderEnabled ?? false)
@@ -203,7 +203,7 @@ export default function SubscriptionDetailPage() {
     asset.reminderSubscriptionDaysOverride ?? null,
   )
   const reminderFollowGlobal = reminderSubscriptionDaysOverride === null
-  const [renewDialogOpen, setRenewDialogOpen] = useState(false)
+  const [renewDialogOpen, setRenewDialogOpen] = useState(() => searchParams.get('renew') === '1')
   const [renewPrice, setRenewPrice] = useState(asset.subscriptionPrice || '')
   const [renewNotes, setRenewNotes] = useState('')
   const [updateExpectedPrice, setUpdateExpectedPrice] = useState(true)
@@ -212,13 +212,6 @@ export default function SubscriptionDetailPage() {
     if (actionData && !actionData.ok && 'error' in actionData && actionData.error)
       toast.error(String(actionData.error))
   }, [actionData])
-
-  useEffect(() => {
-    if (searchParams.get('renew') === '1') {
-      setRenewDialogOpen(true)
-      setSearchParams({}, { replace: true })
-    }
-  }, [searchParams, setSearchParams])
 
   const renewStartDate = nextRenewalDate
   const periodEndDate = renewStartDate && asset.billingCycle
@@ -275,7 +268,7 @@ export default function SubscriptionDetailPage() {
   }
 
   function onRenew() {
-    if (!renewStartDate || !renewPrice || Number(renewPrice) <= 0)
+    if (!renewStartDate || renewPrice === '' || Number(renewPrice) < 0)
       return
     const fd = new FormData()
     fd.append('intent', 'renew')
@@ -568,7 +561,7 @@ export default function SubscriptionDetailPage() {
               <IconX size={14} data-icon="inline-start" />
               取消
             </Button>
-            <Button className="h-10" variant="default" onClick={onRenew} disabled={isSubmitting || !renewPrice || Number(renewPrice) <= 0}>
+            <Button className="h-10" variant="default" onClick={onRenew} disabled={isSubmitting || renewPrice === '' || Number(renewPrice) < 0}>
               {isSubmitting && <IconLoader2 size={14} className="animate-spin" />}
               {!isSubmitting && <IconCheck size={14} data-icon="inline-start" />}
               确认续费

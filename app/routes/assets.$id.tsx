@@ -598,12 +598,20 @@ export default function AssetDetailPage() {
         <SectionCard
           title="价值历史"
           className="mt-3"
-          action={<button type="button" onClick={() => setValueDialogOpen(true)}>记录估值</button>}
+          action={<Button type="button" size="sm" variant="ghost" onClick={() => setValueDialogOpen(true)}>记录估值</Button>}
         >
           <div className="flex items-end justify-between gap-4 py-3">
             <div>
               <div className="text-xs" style={{ color: 'var(--color-muted)' }}>当前估值</div>
               <div className="mt-1 text-2xl font-semibold tabular-nums" style={{ color: 'var(--color-ink)' }}>{formatInteger(asset.currentValue)}</div>
+              {asset.purchasePrice && (
+                <div className="mt-1 text-xs tabular-nums" style={{ color: 'var(--color-muted)' }}>
+                  较购入价
+                  {' '}
+                  {currency(asset.currentValue).subtract(asset.purchasePrice).value >= 0 ? '+' : ''}
+                  {formatInteger(currency(asset.currentValue).subtract(asset.purchasePrice).value)}
+                </div>
+              )}
             </div>
             {valueRecords[0] && (
               <time className="text-xs tabular-nums" style={{ color: 'var(--color-muted)' }}>
