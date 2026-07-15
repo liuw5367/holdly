@@ -1,6 +1,6 @@
 # 提醒系统设计方案
 
-> 版本：v1.0 | 日期：2026-05-28 | 状态：已实现
+> 状态：已实现 | 最近校对：2026-07-15
 
 ---
 
@@ -12,7 +12,7 @@
 
 - 全局提醒开关与天数配置（设置页）
 - 单资产提醒开关与天数覆盖（资产详情页）
-- 邮件发送（Resend + Vercel Cron）
+- 邮件发送（Resend + GitHub Actions 定时触发，兼容 Vercel Cron 请求头）
 - Dashboard 提醒状态展示
 
 ### 非范围
@@ -24,15 +24,20 @@
 
 ---
 
-## 2. 数据模型变更
+## 2. 数据模型
 
-### 2.1 新增字段
+### 2.1 配置字段
 
-`assets` 表新增一个字段：
+`profiles` 保存全局配置，`assets` 保存单资产开关和可选覆盖值：
 
 | 字段 | 类型 | 默认值 | 说明 |
 |---|---|---|---|
-| `reminder_enabled` | boolean | `false` | 单资产提醒开关 |
+| `profiles.reminder_enabled` | boolean | `true` | 全局提醒开关 |
+| `profiles.reminder_subscription_days` | integer | `7` | 全局订阅提醒天数 |
+| `profiles.reminder_warranty_days` | integer | `14` | 全局保修提醒天数 |
+| `assets.reminder_enabled` | boolean | `false` | 单资产提醒开关 |
+| `assets.reminder_subscription_days_override` | integer? | `null` | 单资产订阅提醒天数覆盖 |
+| `assets.reminder_warranty_days_override` | integer? | `null` | 单资产保修提醒天数覆盖 |
 
 新资产创建时默认 `false`，用户需在详情页手动开启。
 
@@ -159,26 +164,15 @@ profile.reminder_enabled = true
 
 路由：`app/routes/api.cron.send-reminders.tsx`
 
-**部署配置**（`vercel.json`）：
-
-```json
-{
-  "crons": [
-    {
-      "path": "/api/cron/send-reminders",
-      "schedule": "0 8 * * *"
-    }
-  ]
-}
-```
-
-每日 UTC 08:00（北京时间 16:00）触发。
+**部署配置**：`.github/workflows/send-reminders.yml` 每日 UTC 08:00 调用端点。端点同时兼容 GitHub Actions、Vercel Cron 请求头和已登录用户请求。
 
 **处理逻辑（同一个端点同时处理 cron 触发和手动触发）：**
 
 ```
 POST /api/cron/send-reminders
-X-Cron-Trigger: true  (Vercel Cron 自动添加)
+x-cron-secret: <CRON_SECRET>  (GitHub Actions)
+或
+x-cron-trigger: true          (兼容 Vercel Cron)
 或
 POST /api/cron/send-reminders  (手动触发，需认证)
 ```
@@ -190,11 +184,11 @@ POST /api/cron/send-reminders  (手动触发，需认证)
    b. 计算 due_date（续费日/保修到期日）
    c. 计算 reminder_days（override ?? profile 全局值）
    d. 计算 scheduled_at = due_date - reminder_days
-   e. 如果 scheduled_at ≤ 今天 → 查 `reminder_jobs` 去重
-   f. 未发送过 → 发邮件 → 写入 `reminder_jobs`（`sent_at = now()`）
-4. Cron 触发时使用内部 service key 鉴权；手动触发需用户 session
+   e. 如果提醒日已到且仍满足发送边界 → 按 `asset_id + reminder_type + scheduled_at` 查 `reminder_jobs` 去重
+   f. 未发送过 → 发邮件；发送成功后写入 `reminder_jobs`（`sent_at = now()`）
+4. Cron 触发使用 `CRON_SECRET` 或 `x-cron-trigger` 鉴权；手动触发需用户 session
 
-发送频率控制：**每个 asset + 每个提醒类型 + 每个 due_date 周期内只发一次**。去重依据：`reminder_jobs` 表中同一 `asset_id + reminder_type` 是否有 `sent_at NOT NULL` 的记录。
+发送频率控制：**每个 asset + 每个提醒类型 + 每个计划提醒日只发一次**。邮件发送失败时不写任务记录，下一次任务可以重试。
 
 ### 4.2 邮件发送
 
@@ -214,29 +208,25 @@ POST https://api.resend.com/emails
 
 ### 4.3 手动触发
 
-设置页「立即检查提醒」按钮 → POST `/api/cron/send-reminders`（带用户 cookie）→ 只检查当前用户 → 返回结果提示条（"已检查，无待发送提醒" / "已发送 X 条提醒"）。
+设置页「立即检查提醒」按钮直接提交 `manual_reminder_check` action，复用 `processUserReminders(user.id)`，只检查当前用户。该入口仅在 localhost / 127.0.0.1 显示。
 
 ---
 
-## 5. 实现步骤
+## 5. 实现位置
 
-| # | 步骤 | 文件 |
-|---|---|---|
-| 1 | schema: 新增 `reminder_enabled` 字段 | `app/db/schema.ts` |
-| 2 | 生成迁移 | `pnpm db:generate` |
-| 3 | 更新 db-init.sql | `docs/db-init.sql` |
-| 4 | 设置页：取消注释通知 section + 实现保存逻辑 | `app/routes/settings.tsx` |
-| 5 | 资产详情：替换提醒 Dialog（开关 + radio 天数选择） | `app/routes/assets.$id.tsx` |
-| 6 | 订阅详情：替换提醒 Dialog | `app/routes/subscriptions.$id.tsx` |
-| 7 | 新增 cron 路由 | `app/routes/api.cron.send-reminders.tsx` |
-| 8 | 新增 Resend 邮件发送函数 | `app/lib/email.server.ts` |
-| 9 | Dashboard 增强：提醒状态展示 | `app/routes/dashboard.tsx` |
-| 10 | 更新 REQUIREMENT.md 未实现清单 | `docs/REQUIREMENT.md` |
+| 职责 | 文件 |
+|---|---|
+| 全局设置与本地手动检查 | `app/routes/settings/reminders.tsx` |
+| 单资产提醒设置 | `app/routes/assets.$id.tsx`、`app/routes/subscriptions.$id.tsx` |
+| Cron 入口 | `app/routes/api.cron.send-reminders.tsx` |
+| 提醒计算、去重与发送编排 | `app/lib/reminder.server.ts` |
+| 邮件投递与品牌模板 | `app/lib/email.server.ts`、`app/lib/email-template.server.ts` |
+| 数据模型 | `app/db/schema.ts`、`docs/db-init.sql` |
 
 ---
 
 ## 6. 回滚方案
 
-- schema 回滚：`pnpm db:generate` 生成回退迁移
 - 代码回滚：`git revert`
-- 数据回滚：`reminder_jobs` 表仅追加，不修改已发送记录；无需数据回滚
+- 停止发送：关闭全局提醒或禁用定时工作流，不需要修改已有数据
+- `reminder_jobs` 是投递去重记录；回滚功能时保留已有记录，避免恢复功能后重复发送

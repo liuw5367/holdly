@@ -8,7 +8,8 @@
 - **持有成本**：买断型动态递减日均成本、订阅型周期日均成本、区间成本统计
 - **统计总览**：KPI 卡片、分类花费分布、月度趋势图、即将到期提醒
 - **协作计划**：多人收支预算管理，支持累加/快照双模式，邀请链接协作
-- **设置中心**：分类、标签、支付方式管理，主题切换
+- **提醒与备份**：订阅/保修邮件提醒、按月邮件备份、XLSX 手动导出
+- **设置中心**：分类、标签、支付方式、提醒、备份与主题管理
 - **PWA 支持**：可添加到主屏幕，离线缓存，自动更新
 
 ## 技术栈
@@ -46,7 +47,7 @@ public/                  # 静态资源（PWA 图标、favicon）
 
 ```bash
 pnpm install
-cp .env.example .env.local   # 填入 Supabase 凭据
+cp .env.example .env.local   # 填入数据库、Supabase、邮件与 Cron 配置
 pnpm dev
 ```
 
@@ -56,6 +57,10 @@ pnpm dev
 |---|---|
 | `SUPABASE_URL` | Supabase 项目 URL |
 | `SUPABASE_ANON_KEY` | Supabase 匿名 Key |
+| `DATABASE_URL` | PostgreSQL 连接串，应用查询与 Drizzle 命令共用 |
+| `RESEND_API_KEY` | Resend API Key；发送提醒和备份邮件时必填 |
+| `EMAIL_FROM` | 发件人地址；可选，默认 `Holdly <notifications@holdly.app>` |
+| `CRON_SECRET` | GitHub Actions 调用 Cron 端点时使用的共享密钥 |
 
 ## 脚本
 
@@ -81,5 +86,7 @@ pnpm dev
 - [部署指南](docs/DEPLOYMENT.md)
 - [成本计算引擎](docs/COST-ENGINE.md)
 - [API 接口文档](docs/API.md)
+- [提醒系统](docs/REMINDER.md)
+- [手动续费实现记录](docs/subscription-renewal-design.md)
 - [数据库初始化 SQL](docs/db-init.sql)
 - [HTML 原型](docs/holdly-prototype.html)

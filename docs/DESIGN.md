@@ -393,10 +393,9 @@ text-align: center
 
 ### 13.3 空状态
 
-（注：当前资产列表未实现空状态 UI，规范供后续使用）
-
 - 居中布局：icon/插图 + 标题（16px ink）+ 描述（14px muted）+ CTA 按钮
 - 背景 `surface-card`，圆角 `radius-xl`，padding 32px
+- 资产列表使用共享 `EmptyState` 组件区分“暂无资产”和“筛选无结果”两种状态
 
 ### 13.4 按钮与切换控件交互状态
 

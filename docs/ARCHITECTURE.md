@@ -6,7 +6,7 @@
 
 | 层级 | 方案 | 决策理由 |
 |---|---|---|
-| 框架 | React Router v7 (SSR) | loader/action 模式天然适合表单密集型应用，SSR 免配置 |
+| 框架 | React Router v7 | 配置式路由；loader/action 提供服务端数据接口，页面以客户端交互为主 |
 | 构建 | Vite 8.0 | RRv7 默认，HMR 极快 |
 | UI | shadcn/ui (base-nova) + Tailwind v4 | 组件可控、样式一致、无运行时开销 |
 | ORM | Drizzle ORM | 类型安全，SQL-like API，迁移工具完善 |
@@ -14,12 +14,13 @@
 | 认证 | Supabase Auth | GitHub/Google OAuth + 邮箱密码，开箱即用 |
 | 表单 | react-hook-form + Zod | 客户端验证 + 服务端 schema 复用 |
 | 图表 | Recharts | React 生态，配合 shadcn Charts |
-| 部署 | Vercel | RRv7 一键部署，Cron 内置 |
+| 部署 | Vercel + GitHub Actions | Vercel 承载应用，GitHub Actions 定时调用提醒与备份端点 |
 
 ## 路由结构
 
 ```
 routes.ts
+├── /.well-known/appspecific/com.chrome.devtools.json → well-known.ts
 ├── index                          → _index.tsx          （重定向 /dashboard）
 │
 ├── login                          → login.tsx
@@ -53,7 +54,8 @@ routes.ts
     ├── settings/payment-accounts  → settings/payment-accounts.tsx
     ├── settings/reminders         → settings/reminders.tsx
     └── settings/data              → settings/data.tsx
-└── api/cron/send-reminders       → api.cron.send-reminders.tsx（无布局）
+├── settings/export-xlsx           → settings.export-xlsx.tsx（认证导出，无布局）
+├── api/cron/send-reminders       → api.cron.send-reminders.tsx（无布局）
 └── api/cron/send-backup          → api.cron.send-backup.tsx（无布局）
 ```
 
@@ -62,7 +64,7 @@ routes.ts
 ```
 app/
 ├── components/
-│   ├── ui/                  # shadcn/ui 基础组件（22 个）
+│   ├── ui/                  # shadcn/ui 基础组件
 │   ├── layout/
 │   │   └── app-shell.tsx    # 认证布局壳（侧边栏 + 底部 Tab）
 │   ├── asset-form.tsx       # 资产表单（买断/订阅共用）
@@ -74,7 +76,12 @@ app/
 │   └── queries/
 │       ├── assets.ts        # 资产 CRUD + 保修/维修/换新
 │       ├── dashboard.ts     # Dashboard 聚合查询
-│       ├── plans.ts         # 计划管理（最大文件，~1126 行）
+│       ├── plans.ts         # 计划查询层统一导出
+│       ├── plans.read.ts    # 计划、成员与月记录读取
+│       ├── plans.write.ts   # 计划与月记录写入
+│       ├── plans.invite.ts  # 邀请链接
+│       ├── plans.import.ts  # CSV 历史导入
+│       ├── plans.types.ts   # 计划类型与纯函数
 │       └── settings.ts      # 设置 CRUD
 ├── lib/
 │   ├── cost.ts              # 持有成本计算引擎
@@ -161,7 +168,7 @@ OAuth 和注册邮件确认使用 PKCE code 回调。密码恢复及 OAuth-only 
 
 1. **无外键约束**：表中存储关联字段（`user_id`、`asset_id` 等）但不声明 `REFERENCES`。关联查询由 Drizzle ORM 在应用层处理。理由：简化迁移、避免级联删除的隐式行为。
 
-2. **软删除**：所有业务表有 `deleted_at TIMESTAMPTZ` 字段。查询必须过滤 `deleted_at IS NULL`。禁止硬删除用户数据。唯一的例外是 `repair_records`（硬删除）。
+2. **软删除**：带 `deleted_at TIMESTAMPTZ` 的用户业务实体必须过滤 `deleted_at IS NULL`，禁止硬删除。`repair_records` 允许硬删除；`asset_tags` 等关联表在移除关系时直接删除关联行。保修、续费和提醒任务没有面向用户的删除入口。
 
 3. **金额计算**：使用 `currency.js` 做精确计算，禁止裸浮点数运算。核心逻辑见 `app/lib/cost.ts`。
 
@@ -175,7 +182,7 @@ OAuth 和注册邮件确认使用 PKCE code 回调。密码恢复及 OAuth-only 
 
 共 18 张表，定义在 `app/db/schema.ts`。
 
-> **注意**：以下字段表省略了部分 NOT NULL 约束和默认值以保持简洁，完整定义以 `schema.ts` 为准。所有表均有 `created_at TIMESTAMPTZ DEFAULT now()`，多数有 `updated_at TIMESTAMPTZ DEFAULT now()`（`asset_tags`、`reminder_jobs` 除外）。
+> **注意**：以下字段表省略了部分 NOT NULL 约束和默认值以保持简洁，完整定义以 `schema.ts` 为准。多数实体表有 `created_at`，需要编辑追踪的实体通常还有 `updated_at`；`asset_tags` 仅保存复合主键。
 
 ### 用户与配置
 
@@ -272,6 +279,7 @@ OAuth 和注册邮件确认使用 PKCE code 回调。密码恢复及 OAuth-only 
 | `payment_type_id` | UUID | 支付类型 |
 | `payment_account_id` | UUID | 支付账户 |
 | `notes` | TEXT | 备注 |
+| `reminder_enabled` | BOOLEAN | 单资产提醒开关，默认 false |
 | `reminder_subscription_days_override` | INTEGER | 单资产订阅提醒天数覆盖 |
 | `reminder_warranty_days_override` | INTEGER | 单资产保修提醒天数覆盖 |
 | `traded_in_at` | DATE | 以旧换新日期 |

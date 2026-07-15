@@ -77,10 +77,10 @@
   expiring: [{
     id, emoji, name, detail   // detail 为到期描述文本（如"订阅 · 2026-06-15 到期（18 天后）"）
   }]
-
-> **到期日计算**：使用`nextRenewalDate`字段优先，否则从`subscriptionStartDate`/`purchaseDate`推算。到期日 = `nextRenewalDate - 1天`。
 }
 ```
+
+> **到期日计算**：优先使用 `nextRenewalDate`，否则从 `subscriptionStartDate` / `purchaseDate` 推算。到期日为 `nextRenewalDate - 1 天`。
 
 ---
 
@@ -117,7 +117,7 @@
 | 类型 | 说明 |
 |---|---|
 | Loader | 订阅型 → redirect `/subscriptions/:id`。返回完整资产详情 |
-| Action | 支持 6 个 intent |
+| Action | 支持 7 个 intent |
 
 **loader 返回数据**：
 
@@ -145,6 +145,7 @@
 | `update-repair` | `repairId` + 同上字段 | 更新当前资产的维修记录；不属于该资产时返回 404 |
 | `delete-repair` | `repairId` | 删除当前资产的维修记录（硬删除）；不属于该资产时返回 404 |
 | `upsert-warranty` | `startDate`, `endDate`, `notes` | 创建或更新保修信息 |
+| `update_reminder` | `reminderEnabled`, `reminderWarrantyDaysOverride` | 更新当前资产的保修提醒开关与提前天数覆盖 |
 
 ### `POST /assets/new`
 
@@ -178,7 +179,7 @@
 | 类型 | 说明 |
 |---|---|
 | Loader | 非订阅型 → redirect `/assets/:id`。返回订阅详情 + 计算指标 |
-| Action | 支持 3 个 intent |
+| Action | 支持 5 个 intent |
 
 **loader 返回数据**：
 
@@ -187,7 +188,9 @@
   asset, tagIds, allCategories, allTags,
   paymentTypes, paymentAccounts,
   holdingDays: number,
-  dailyCost: number
+  dailyCost: number,
+  globalReminderSubscriptionDays: number,
+  latestRenewal: { startDate, price } | null
 }
 ```
 
@@ -198,6 +201,8 @@
 | `cancel` | `stoppedAt` | 取消订阅，设置 `subscriptionStoppedAt` + `subscriptionStatus: 'cancelled'` |
 | `resume` | — | 恢复订阅，清除 `subscriptionStoppedAt` + `subscriptionStatus: 'active'` |
 | `delete` | — | 软删除，redirect `/assets` |
+| `update_reminder` | `reminderEnabled`, `reminderSubscriptionDaysOverride` | 更新续费提醒开关与提前天数覆盖 |
+| `renew` | `price`, `startDate` | 创建续费记录，并按计费周期推进 `nextRenewalDate` |
 
 ### `POST /subscriptions/new`
 
@@ -346,9 +351,9 @@
 
 | 类型 | 说明 |
 |---|---|
-| Loader | 返回 `{ reminderEnabled, reminderSubscriptionDays, reminderWarrantyDays }` |
+| Loader | 返回 `{ reminderEnabled, reminderSubscriptionDays, reminderWarrantyDays, isLocal }` |
 | Action `update_reminder` | 更新 `reminderEnabled` + `reminderSubscriptionDays` + `reminderWarrantyDays` |
-| Action `manual_reminder_check` | 触发 `POST /api/cron/send-reminders`，返回 `{ sent }` |
+| Action `manual_reminder_check` | 直接调用共享提醒逻辑处理当前登录用户，返回 `{ sent }`；入口仅在本地环境显示 |
 
 ### `GET/POST /settings/categories`
 
@@ -390,8 +395,9 @@
 
 | 类型 | 说明 |
 |---|---|
-| Loader | 返回 `{ backupEnabled, backupDayOfMonth, backupFrequency }` |
+| Loader | 返回 `{ backupEnabled, backupDayOfMonth, backupFrequency, isLocal }` |
 | Action `update_backup` | 更新 `backupEnabled` + `backupDayOfMonth` + `backupFrequency` |
+| Action `manual_backup` | 直接调用共享备份逻辑，向当前登录用户发送一次备份；入口仅在本地环境显示 |
 
 ### `GET /settings/export-xlsx`
 
@@ -403,6 +409,22 @@
 ---
 
 ## Cron 模块
+
+### `POST /api/cron/send-reminders`
+
+| 类型 | 说明 |
+|---|---|
+| Action | Cron 鉴权通过时处理所有开启全局提醒的用户；否则要求 Supabase session，并只处理当前用户 |
+
+**鉴权**：`x-cron-secret`（GitHub Actions）或 `x-cron-trigger: true`（兼容 Vercel Cron）。没有 Cron 请求头时使用当前用户 session。
+
+**处理逻辑**：
+1. 全局任务查询所有 `reminderEnabled = true` 的 profile；手动请求只使用当前用户
+2. 调用 `processUserReminders(userId)` 检查已开启提醒且未软删除的资产
+3. 对订阅续费和保修到期分别计算提醒日期，以 `asset + reminderType + scheduledAt` 去重
+4. 邮件发送成功后写入 `reminder_jobs`；发送失败不写任务记录，也不计入 `sent`
+
+**响应**：返回 `{ ok, sent }`；未通过 Cron 鉴权且没有登录 session 时返回 401。
 
 ### `POST /api/cron/send-backup`
 
@@ -426,12 +448,14 @@
 
 所有查询实现在 `app/db/queries/` 目录：
 
-| 文件 | 函数数量 | 职责 |
-|---|---|---|
-| `assets.ts` | 26 | 资产 CRUD + 保修/维修/换新/标签/分类 |
-| `dashboard.ts` | 1 | Dashboard 聚合（KPI + 分类花费 + 趋图 + 到期）|
-| `plans.ts` | 13 | 计划 CRUD + 成员/邀请/记录/导入 |
-| `settings.ts` | 18 | 个人资料/分类/标签/支付方式/备份配置 CRUD |
+| 文件 | 职责 |
+|---|---|
+| `assets.ts` | 资产 CRUD、保修、维修、换新、提醒与续费记录 |
+| `dashboard.ts` | Dashboard 聚合（KPI、分类花费、趋势与到期项）|
+| `plans.read.ts` / `plans.write.ts` | 计划、成员和月记录的读取与写入 |
+| `plans.invite.ts` / `plans.import.ts` | 邀请链接与 CSV 历史导入 |
+| `plans.types.ts` / `plans.ts` | 计划类型、纯函数与统一导出入口 |
+| `settings.ts` | 个人资料、分类、标签、支付方式、提醒与备份配置 |
 
 ---
 

@@ -8,12 +8,20 @@
 |---|---|---|
 | `SUPABASE_URL` | 是 | Supabase 项目 URL，格式 `https://xxx.supabase.co` |
 | `SUPABASE_ANON_KEY` | 是 | Supabase 匿名 Key（公开，前端可见）|
+| `DATABASE_URL` | 是 | PostgreSQL 连接串，供应用查询和 Drizzle Kit 使用 |
+| `RESEND_API_KEY` | 邮件功能必填 | Resend API Key；缺失时提醒和备份邮件不会发送 |
+| `EMAIL_FROM` | 否 | 发件人地址，默认 `Holdly <notifications@holdly.app>` |
+| `CRON_SECRET` | GitHub Actions 必填 | Cron 端点共享密钥，需与仓库 Secret 同值 |
 
 `.env.example` 内容：
 
 ```
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_ANON_KEY=your-anon-key
+DATABASE_URL=postgresql://postgres:your-password@db.your-project.supabase.co:5432/postgres
+RESEND_API_KEY=re_xxxxxxxxxxxx
+EMAIL_FROM='Holdly <notifications@your-domain.com>'
+CRON_SECRET=your-random-secret-string
 ```
 
 ---
@@ -90,6 +98,10 @@ SUPABASE_ANON_KEY=your-anon-key
 |---|---|
 | `SUPABASE_URL` | 你的 Supabase 项目 URL |
 | `SUPABASE_ANON_KEY` | 你的 Supabase anon key |
+| `DATABASE_URL` | Supabase PostgreSQL 连接串 |
+| `RESEND_API_KEY` | Resend API Key |
+| `EMAIL_FROM` | 发件人地址（可选）|
+| `CRON_SECRET` | Cron 共享密钥 |
 
 ### 3. 构建配置
 
@@ -103,24 +115,23 @@ SUPABASE_ANON_KEY=your-anon-key
 
 ---
 
-## Vercel Cron（邮件提醒）
+## 定时任务
 
-邮件提醒功能依赖 Vercel Cron 定时触发 API route。
+仓库通过 GitHub Actions 调用两个 Cron 端点：
 
-在 `vercel.json` 中配置：
+| 工作流 | 时间（UTC） | 端点 |
+|---|---|---|
+| `.github/workflows/send-reminders.yml` | 每日 08:00 | `POST /api/cron/send-reminders` |
+| `.github/workflows/send-backup.yml` | 每日 09:00 | `POST /api/cron/send-backup` |
 
-```json
-{
-  "crons": [
-    {
-      "path": "/api/cron/send-reminders",
-      "schedule": "0 8 * * *"
-    }
-  ]
-}
-```
+在 GitHub 仓库的 Actions secrets 中配置：
 
-每日 UTC 08:00（北京时间 16:00）触发，扫描用户资产配置，通过 Resend 发送到期提醒邮件。同时支持用户从设置页手动触发。
+| Secret | 说明 |
+|---|---|
+| `CRON_SECRET` | 与部署环境中的 `CRON_SECRET` 保持一致 |
+| `VERCEL_URL` | 部署域名，例如 `https://holdly.example.com`；不配置时工作流使用仓库内的默认地址 |
+
+工作流通过 `x-cron-secret` 请求头鉴权。端点也兼容携带 `x-cron-trigger: true` 的 Vercel Cron 请求，但仓库当前没有 `vercel.json`，默认调度来源是 GitHub Actions。提醒设置页在本地环境还提供仅处理当前登录用户的手动检查入口。
 
 ---
 
@@ -164,7 +175,7 @@ pnpm db:migrate
 
 ### 迁移文件
 
-迁移文件存储在 `drizzle/` 目录，包含 SQL 迁移文件和 JSON 快照。当前共 6 个迁移版本（0000-0005）。
+迁移 SQL 存储在 `drizzle/` 目录，Drizzle 元数据位于被 Git 忽略的 `drizzle/meta/`。不要在文档中固定迁移数量；以目录中的 SQL 文件为准。
 
 ---
 
@@ -188,7 +199,7 @@ pnpm install
 
 # 复制环境变量
 cp .env.example .env.local
-# 编辑 .env.local 填入 Supabase 凭据
+# 编辑 .env.local 填入数据库、Supabase、邮件与 Cron 配置
 
 # 启动开发服务器
 pnpm dev
