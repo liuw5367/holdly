@@ -807,6 +807,9 @@ export async function getSubscriptionsByUserId(userId: string) {
     subscriptionStoppedAt: assets.subscriptionStoppedAt,
     paymentAccountId: assets.paymentAccountId,
     paymentAccountName: paymentAccounts.name,
+    paymentAccountCurrencyCode: paymentAccounts.currencyCode,
+    paymentAccountBankName: paymentAccounts.bankName,
+    paymentAccountLastFour: paymentAccounts.lastFour,
   })
     .from(assets)
     .leftJoin(categories, eq(assets.categoryId, categories.id))

@@ -1,6 +1,7 @@
 import type { Route } from './+types/payment-accounts'
 import {
   IconCheck,
+  IconCreditCard,
   IconLoader2,
   IconPencil,
   IconPlus,
@@ -8,7 +9,7 @@ import {
   IconX,
 } from '@tabler/icons-react'
 import { useMemo, useState } from 'react'
-import { data, Form, redirect, useLoaderData, useNavigation } from 'react-router'
+import { data, Form, Link, redirect, useLoaderData, useNavigation } from 'react-router'
 import { SubPageHeader } from '~/components/page-header'
 import { Button } from '~/components/ui/button'
 import { Input } from '~/components/ui/input'
@@ -108,6 +109,11 @@ export default function PaymentAccountsPage() {
     <div className="pb-8">
       <SubPageHeader backTo="/settings" backLabel="设置" title="支付账户管理" />
 
+      <Button className="mb-4 w-full" variant="secondary" render={<Link to="/settings/payment-accounts/card" />}>
+        <IconCreditCard data-icon="inline-start" />
+        添加信用卡资料
+      </Button>
+
       <Form
         method="post"
         className="mb-6 rounded-2xl p-4"
@@ -205,12 +211,15 @@ export default function PaymentAccountsPage() {
                 )
               : (
                   <>
-                    <span
-                      className="min-w-0 flex-1 truncate text-sm"
-                      style={{ color: 'var(--color-ink)' }}
-                    >
-                      {item.name}
-                    </span>
+                    {item.accountKind === 'credit_card'
+                      ? (
+                          <Link to={`/settings/payment-accounts/${item.id}`} className="min-w-0 flex-1 truncate text-sm" style={{ color: 'var(--color-ink)' }}>
+                            {item.bankName ? `${item.bankName} · ` : ''}
+                            {item.name}
+                            {item.lastFour ? ` · ${item.lastFour}` : ''}
+                          </Link>
+                        )
+                      : <span className="min-w-0 flex-1 truncate text-sm" style={{ color: 'var(--color-ink)' }}>{item.name}</span>}
                     <span
                       className="rounded-md px-2 py-0.5 text-xs font-medium"
                       style={{

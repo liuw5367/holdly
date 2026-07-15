@@ -244,6 +244,10 @@ OAuth 和注册邮件确认使用 PKCE code 回调。密码恢复及 OAuth-only 
 
 **`payment_accounts`** — 支付账户
 
+普通账户和信用卡共用此表。信用卡通过 `account_kind = credit_card` 启用以下元数据：`bank_name`、`last_four`、`notes`、`statement_day`、`repayment_rule`、`repayment_day`、`repayment_days_after_statement`、`credit_limit`、`currency_code`、`is_active`。不保存完整卡号或任何安全凭证。
+
+信用卡日期由应用层将 29–31 日钳制到短月份最后一天。订阅仍通过 `assets.payment_account_id` 关联；聚合按 `currency_code` 分组，不提供汇率换算。停用账户不参与新关联选择，但已有关系可读。
+
 | 字段 | 类型 | 说明 |
 |---|---|---|
 | `id` | UUID PK | |

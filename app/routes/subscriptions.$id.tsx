@@ -297,7 +297,9 @@ export default function SubscriptionDetailPage() {
     nextRenewalDate ? { label: '下次续费日期', value: nextRenewalDate } : null,
     latestRenewal ? { label: '最近续费', value: `${latestRenewal.startDate} · ${formatInteger(latestRenewal.price)}` } : null,
     paymentType ? { label: '支付类型', value: paymentType.name } : null,
-    paymentAccount ? { label: '支付方式', value: paymentAccount.name } : null,
+    paymentAccount
+      ? { label: '支付方式', value: `${paymentAccount.bankName ? `${paymentAccount.bankName} · ` : ''}${paymentAccount.name}${paymentAccount.lastFour ? ` · ${paymentAccount.lastFour}` : ''}` }
+      : null,
     category ? { label: '分类', value: `${category.emoji} ${category.name}` } : null,
     {
       label: '续费提醒',

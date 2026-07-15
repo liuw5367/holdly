@@ -41,6 +41,8 @@ export default [
     route('settings/tags', 'routes/settings/tags.tsx'),
     route('settings/payment-types', 'routes/settings/payment-types.tsx'),
     route('settings/payment-accounts', 'routes/settings/payment-accounts.tsx'),
+    route('settings/payment-accounts/card/:id?', 'routes/settings.payment-card-editor.tsx'),
+    route('settings/payment-accounts/:id', 'routes/settings.payment-card-detail.tsx'),
     route('settings/reminders', 'routes/settings/reminders.tsx'),
     route('settings/data', 'routes/settings/data.tsx'),
   ]),

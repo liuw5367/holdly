@@ -41,6 +41,7 @@ interface PaymentAccount {
   id: string
   name: string
   paymentTypeId: string | null
+  isActive?: boolean
 }
 
 type FormMode = 'asset' | 'subscription'
@@ -107,9 +108,10 @@ export function AssetForm({
 
   const isSubscription = mode === 'subscription'
 
+  const availableAccounts = paymentAccounts.filter(account => account.isActive !== false || account.id === selectedPaymentAccountId)
   const filteredAccounts = selectedPaymentTypeId
-    ? paymentAccounts.filter(a => a.paymentTypeId === selectedPaymentTypeId)
-    : paymentAccounts
+    ? availableAccounts.filter(a => a.paymentTypeId === selectedPaymentTypeId)
+    : availableAccounts
   const categoryLabelById = useMemo(
     () => Object.fromEntries(categories.map(c => [c.id, `${c.emoji} ${c.name}`])),
     [categories],

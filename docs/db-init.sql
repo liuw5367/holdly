@@ -57,7 +57,20 @@ CREATE TABLE IF NOT EXISTS public.payment_accounts (
   user_id UUID NOT NULL,
   payment_type_id UUID NOT NULL,
   name TEXT NOT NULL,
-  deleted_at TIMESTAMPTZ
+  account_kind TEXT NOT NULL DEFAULT 'generic',
+  bank_name TEXT,
+  last_four TEXT,
+  notes TEXT,
+  statement_day INTEGER,
+  repayment_rule TEXT,
+  repayment_day INTEGER,
+  repayment_days_after_statement INTEGER,
+  credit_limit NUMERIC(12, 2),
+  currency_code TEXT NOT NULL DEFAULT 'CNY',
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  deleted_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- 6. assets（资产）

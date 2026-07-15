@@ -151,6 +151,24 @@ export async function generateExportXlsx(userId: string): Promise<Uint8Array> {
   renewalSheet['!cols'] = [{ wch: 20 }, { wch: 12 }, { wch: 8 }, { wch: 12 }, { wch: 30 }, { wch: 20 }]
   XLSX.utils.book_append_sheet(wb, renewalSheet, '订阅续费历史')
 
+  const accountRows = await db.select().from(paymentAccounts).where(and(eq(paymentAccounts.userId, userId), isNull(paymentAccounts.deletedAt))).orderBy(paymentAccounts.name)
+  const accountSheet = XLSX.utils.json_to_sheet(accountRows.map(account => ({
+    名称: account.name,
+    类型: account.accountKind === 'credit_card' ? '信用卡' : '普通账户',
+    银行: account.bankName || '',
+    卡片尾号: account.lastFour || '',
+    出账日: account.statementDay || '',
+    还款规则: account.repaymentRule === 'fixed_day' ? '固定还款日' : account.repaymentRule === 'days_after_statement' ? '出账后天数' : '',
+    固定还款日: account.repaymentDay || '',
+    出账后天数: account.repaymentDaysAfterStatement ?? '',
+    额度: account.creditLimit ? Number(account.creditLimit) : '',
+    币种: account.currencyCode,
+    状态: account.isActive ? '使用中' : '已停用',
+    备注: account.notes || '',
+  })))
+  accountSheet['!cols'] = Array.from({ length: 12 }, () => ({ wch: 14 }))
+  XLSX.utils.book_append_sheet(wb, accountSheet, '支付账户')
+
   // ==================== Sheet 2+: 各计划 ====================
   const userPlans = await db
     .select({

@@ -65,7 +65,20 @@ export const paymentAccounts = pgTable('payment_accounts', {
   userId: uuid('user_id').notNull(),
   paymentTypeId: uuid('payment_type_id').notNull(),
   name: text('name').notNull(),
+  accountKind: text('account_kind', { enum: ['generic', 'credit_card'] }).notNull().default('generic'),
+  bankName: text('bank_name'),
+  lastFour: text('last_four'),
+  notes: text('notes'),
+  statementDay: integer('statement_day'),
+  repaymentRule: text('repayment_rule', { enum: ['fixed_day', 'days_after_statement'] }),
+  repaymentDay: integer('repayment_day'),
+  repaymentDaysAfterStatement: integer('repayment_days_after_statement'),
+  creditLimit: numeric('credit_limit', { precision: 12, scale: 2 }),
+  currencyCode: text('currency_code').notNull().default('CNY'),
+  isActive: boolean('is_active').notNull().default(true),
   deletedAt: timestamp('deleted_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
 })
 
 // --- assets ---

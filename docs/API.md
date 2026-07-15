@@ -393,6 +393,15 @@
 | Action `update` | 参数 `id` + `name` |
 | Action `delete` | 参数 `id`，软删除 + 级联软删除下级 `payment_accounts` |
 
+### 信用卡资料
+
+| 路由 | 说明 |
+|---|---|
+| `GET/POST /settings/payment-accounts/card/:id?` | 新增或编辑信用卡资料；服务端校验尾号、日期、还款规则、额度和币种 |
+| `GET/POST /settings/payment-accounts/:id` | 展示资料、关联订阅和未来 30 天预计扣费；POST 切换启停状态 |
+
+所有查询验证支付账户属于当前用户。接口只接受四位尾号，不定义完整卡号、CVV、密码或余额字段。
+
 ### `GET/POST /settings/payment-accounts`
 
 | 类型 | 说明 |

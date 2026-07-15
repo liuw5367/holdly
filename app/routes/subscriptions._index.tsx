@@ -38,12 +38,20 @@ export default function SubscriptionsIndex() {
   const [paymentAccountId, setPaymentAccountId] = useState('all')
 
   const active = subscriptions.filter(item => item.subscriptionStatus === 'active' && !item.subscriptionStoppedAt)
-  const monthlyCost = active.reduce((total, item) => item.subscriptionPrice && item.billingCycle
-    ? currency(total).add(toMonthlySubscriptionCost(item.subscriptionPrice, item.billingCycle)).value
-    : total, 0)
-  const yearlyCost = active.reduce((total, item) => item.subscriptionPrice && item.billingCycle
-    ? currency(total).add(toYearlySubscriptionCost(item.subscriptionPrice, item.billingCycle)).value
-    : total, 0)
+  const monthlyCost = active.reduce<Record<string, number>>((totals, item) => {
+    if (item.subscriptionPrice && item.billingCycle) {
+      const code = item.paymentAccountCurrencyCode || 'CNY'
+      totals[code] = currency(totals[code] || 0).add(toMonthlySubscriptionCost(item.subscriptionPrice, item.billingCycle)).value
+    }
+    return totals
+  }, {})
+  const yearlyCost = active.reduce<Record<string, number>>((totals, item) => {
+    if (item.subscriptionPrice && item.billingCycle) {
+      const code = item.paymentAccountCurrencyCode || 'CNY'
+      totals[code] = currency(totals[code] || 0).add(toYearlySubscriptionCost(item.subscriptionPrice, item.billingCycle)).value
+    }
+    return totals
+  }, {})
   const counts = active.reduce((result, item) => {
     const key = getRenewalWindow(item.nextRenewalDate, today)
     if (key === 'overdue' || key === 'seven_days' || key === 'thirty_days')
@@ -78,8 +86,8 @@ export default function SubscriptionsIndex() {
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <Summary label="活动订阅" value={`${active.length}`} />
-        <Summary label="月度预计" value={formatInteger(monthlyCost)} />
-        <Summary label="年度预计" value={formatInteger(yearlyCost)} />
+        <Summary label="月度预计" value={formatCurrencyGroups(monthlyCost)} />
+        <Summary label="年度预计" value={formatCurrencyGroups(yearlyCost)} />
         <Summary label="需关注" value={`${counts.overdue + counts.seven_days}`} detail={`${counts.overdue} 逾期 · ${counts.seven_days} 七天内`} />
       </div>
 
@@ -148,6 +156,11 @@ function Summary({ label, value, detail }: { label: string, value: string, detai
       {detail && <CardContent className="text-xs text-muted-foreground">{detail}</CardContent>}
     </Card>
   )
+}
+
+function formatCurrencyGroups(values: Record<string, number>) {
+  const groups = Object.entries(values)
+  return groups.length > 0 ? groups.map(([code, value]) => `${code} ${formatInteger(value)}`).join(' · ') : '—'
 }
 
 function Filter({ value, onChange, options }: { value: string, onChange: (value: string) => void, options: string[][] }) {
