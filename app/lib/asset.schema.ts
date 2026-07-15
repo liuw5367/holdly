@@ -12,8 +12,9 @@ export const assetFormSchema = z.object({
 
   // 买断型
   purchasePrice: z.string().optional(),
-  currentValue: z.string().optional(),
+  currentValue: z.string().optional().refine(value => !value || (Number.isFinite(Number(value)) && Number(value) >= 0), '当前估价不能小于 0'),
   purchaseDate: z.string().optional(),
+  purchaseReceipt: z.string().trim().max(500, '购买凭证最多 500 个字符').optional(),
 
   // 订阅型
   subscriptionPrice: z.string().optional(),
@@ -43,11 +44,25 @@ export type AssetFormValues = z.infer<typeof assetFormSchema>
 
 export const repairRecordSchema = z.object({
   repairDate: z.string().min(1, '请选择维修日期'),
-  cost: z.string().default('0'),
-  reason: z.string().optional(),
-  vendor: z.string().optional(),
-  result: z.string().optional(),
+  cost: z.string().default('0').refine(value => Number.isFinite(Number(value)) && Number(value) >= 0, '维修费用不能小于 0'),
+  reason: z.string().trim().max(200, '维修原因最多 200 个字符').optional(),
+  vendor: z.string().trim().max(100, '维修商最多 100 个字符').optional(),
+  result: z.string().trim().max(200, '维修结果最多 200 个字符').optional(),
   isDone: z.boolean().default(true),
+})
+
+export const assetSaleSchema = z.object({
+  tradeInPrice: z.string().refine(value => Number.isFinite(Number(value)) && Number(value) >= 0, '卖出价格不能小于 0'),
+  tradedInAt: z.string().min(1, '请选择卖出日期'),
+})
+
+export const warrantySchema = z.object({
+  startDate: z.string().min(1, '请选择保修开始日期'),
+  endDate: z.string().min(1, '请选择保修结束日期'),
+  notes: z.string().trim().max(500, '保修备注最多 500 个字符').optional(),
+}).refine(data => data.endDate >= data.startDate, {
+  message: '保修结束日期不能早于开始日期',
+  path: ['endDate'],
 })
 
 export type RepairRecordFormValues = z.infer<typeof repairRecordSchema>

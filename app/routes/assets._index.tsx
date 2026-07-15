@@ -1,5 +1,6 @@
 import type { Route } from './+types/assets._index'
 import { IconChevronDown, IconSearch, IconX } from '@tabler/icons-react'
+import { differenceInDays } from 'date-fns'
 import { useMemo, useState } from 'react'
 import { data, redirect, useLoaderData, useNavigate } from 'react-router'
 import { EmptyState } from '~/components/empty-state'
@@ -18,8 +19,8 @@ import {
   getCategoriesByUserId,
   getTagsByUserId,
 } from '~/db/queries/assets'
-import { calculateAssetDurationDays, getAssetDetailPath, subAmount } from '~/lib/asset-meta'
-import { calcOneTimeDailyCost, calcSubscriptionDailyCost } from '~/lib/cost'
+import { calculateAssetDurationDays, getAssetDetailPath } from '~/lib/asset-meta'
+import { calcOneTimeDailyCost, calcSoldOneTimeDailyCost, calcSubscriptionDailyCost } from '~/lib/cost'
 import { isSubscriptionActive } from '~/lib/subscription-status'
 import { createSupabaseServerClient } from '~/lib/supabase.server'
 
@@ -40,9 +41,8 @@ export async function loader({ request }: Route.LoaderArgs) {
   const assetsWithCost = rawAssets.map((a) => {
     let dailyCost = 0
     if (a.tradedInAt && a.purchasePrice && a.purchaseDate) {
-      const holdingDays = Math.max(1, Math.floor((new Date(a.tradedInAt).getTime() - new Date(a.purchaseDate).getTime()) / (1000 * 60 * 60 * 24)))
-      const holdingCost = subAmount(a.purchasePrice, a.tradeInPrice)
-      dailyCost = holdingCost / holdingDays
+      const holdingDays = Math.max(1, differenceInDays(new Date(a.tradedInAt), new Date(a.purchaseDate)))
+      dailyCost = calcSoldOneTimeDailyCost(Number(a.purchasePrice), Number(a.tradeInPrice || 0), holdingDays)
     }
     else if (a.assetType === 'one_time' && a.purchasePrice && a.purchaseDate) {
       dailyCost = calcOneTimeDailyCost(Number(a.purchasePrice), a.purchaseDate)

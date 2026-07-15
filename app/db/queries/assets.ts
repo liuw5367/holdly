@@ -81,6 +81,7 @@ export interface CreateAssetInput {
   purchasePrice?: string
   currentValue?: string
   purchaseDate?: string
+  purchaseReceipt?: string
   subscriptionPrice?: string
   billingCycle?: 'monthly' | 'quarterly' | 'yearly'
   nextRenewalDate?: string
@@ -105,6 +106,7 @@ export async function createAsset(input: CreateAssetInput) {
       purchasePrice: data.purchasePrice ?? null,
       currentValue: data.currentValue ?? null,
       purchaseDate: data.purchaseDate ?? null,
+      purchaseReceipt: data.purchaseReceipt ?? null,
       subscriptionPrice: data.subscriptionPrice ?? null,
       billingCycle: data.billingCycle ?? null,
       nextRenewalDate: data.nextRenewalDate ?? null,
@@ -134,6 +136,7 @@ export interface UpdateAssetInput {
   purchasePrice?: string
   currentValue?: string
   purchaseDate?: string
+  purchaseReceipt?: string
   subscriptionPrice?: string
   billingCycle?: 'monthly' | 'quarterly' | 'yearly'
   nextRenewalDate?: string
@@ -157,6 +160,7 @@ export async function updateAsset(id: string, userId: string, input: UpdateAsset
       purchasePrice: data.purchasePrice ?? null,
       currentValue: data.currentValue ?? null,
       purchaseDate: data.purchaseDate ?? null,
+      purchaseReceipt: data.purchaseReceipt ?? null,
       subscriptionPrice: data.subscriptionPrice ?? null,
       billingCycle: data.billingCycle ?? null,
       nextRenewalDate: data.nextRenewalDate ?? null,

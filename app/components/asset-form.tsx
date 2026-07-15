@@ -143,6 +143,7 @@ export function AssetForm({
       purchasePrice: defaultValues?.purchasePrice || '',
       currentValue: defaultValues?.currentValue || '',
       purchaseDate: defaultValues?.purchaseDate || today,
+      purchaseReceipt: defaultValues?.purchaseReceipt || '',
       subscriptionPrice: defaultValues?.subscriptionPrice || '',
       billingCycle: defaultValues?.billingCycle || undefined,
       nextRenewalDate: defaultValues?.nextRenewalDate || '',
@@ -168,6 +169,8 @@ export function AssetForm({
       fd.append('subscriptionPrice', data.subscriptionPrice || '')
       fd.append('billingCycle', data.billingCycle || '')
       fd.append('purchaseDate', selectedPurchaseDate || '')
+      if (data.purchaseReceipt)
+        fd.append('purchaseReceipt', data.purchaseReceipt)
       fd.append('subscriptionStartDate', data.subscriptionStartDate || selectedPurchaseDate || '')
     }
     else {
@@ -398,6 +401,17 @@ export function AssetForm({
                   placeholder="可选，留空默认等于购入价"
                   {...register('currentValue')}
                 />
+              </Field>
+
+              <Field data-invalid={Boolean(fieldError('purchaseReceipt')) || undefined}>
+                <FieldLabel>购买凭证</FieldLabel>
+                <Textarea
+                  aria-invalid={Boolean(fieldError('purchaseReceipt')) || undefined}
+                  placeholder="可填写订单号、发票说明或 http(s) 链接"
+                  className="resize-y"
+                  {...register('purchaseReceipt')}
+                />
+                <FieldError>{fieldError('purchaseReceipt')}</FieldError>
               </Field>
             </>
           )}

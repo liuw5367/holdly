@@ -12,6 +12,13 @@ export function calcOneTimeDailyCost(purchasePrice: number, purchaseDate: string
   return currency(purchasePrice, RATE_OPTIONS).divide(n).value
 }
 
+export function calcSoldOneTimeDailyCost(purchasePrice: number, tradeInPrice: number, holdingDays: number): number {
+  return currency(purchasePrice, RATE_OPTIONS)
+    .subtract(tradeInPrice)
+    .divide(Math.max(1, holdingDays))
+    .value
+}
+
 /**
  * 订阅型资产每日成本
  * monthly → P_m / 30，quarterly → P_m / 91，yearly → P_m / 365

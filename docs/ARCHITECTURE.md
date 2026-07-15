@@ -269,7 +269,7 @@ OAuth 和注册邮件确认使用 PKCE code 回调。密码恢复及 OAuth-only 
 | `list_price` | NUMERIC(12,2) | 换新设备原始标价，普通资产可为空 |
 | `current_value` | NUMERIC(12,2) | 当前估价 |
 | `purchase_date` | DATE | 购入日期 |
-| `purchase_receipt` | TEXT | 凭证（文本，非文件） |
+| `purchase_receipt` | TEXT | 凭证（订单号、说明或 URL 文本，应用不托管文件） |
 | `subscription_price` | NUMERIC(12,2) | 订阅价格 |
 | `billing_cycle` | TEXT ENUM | `monthly` / `quarterly` / `yearly` |
 | `next_renewal_date` | DATE | 下次续费日（计算字段存储） |
@@ -311,7 +311,7 @@ OAuth 和注册邮件确认使用 PKCE code 回调。密码恢复及 OAuth-only 
 
 **`repair_records`** — 维修记录（**硬删除**，唯一例外）
 
-维修、保修和续费写操作必须先验证父资产属于当前用户且未软删除。维修更新和删除同时以 `repair_id + asset_id` 定位，禁止仅凭子资源 ID 修改。
+维修、保修和续费写操作必须先验证父资产属于当前用户且未软删除。维修更新和删除同时以 `repair_id + asset_id` 定位，禁止仅凭子资源 ID 修改。出售价格与维修费用由服务端校验为非负金额，保修结束日期不得早于开始日期。
 
 | 字段 | 类型 | 说明 |
 |---|---|---|

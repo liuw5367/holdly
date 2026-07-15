@@ -140,11 +140,11 @@
 | Intent | 参数 | 说明 |
 |---|---|---|
 | `delete` | — | 软删除资产，redirect `/assets` |
-| `sell` | `tradeInPrice`, `tradedInAt` | 标记资产为已卖出（`tradedInAt` + `tradeInPrice`）|
-| `add-repair` | `repairDate`, `cost`, `reason`, `vendor`, `result`, `isDone` | 创建维修记录 |
+| `sell` | `tradeInPrice`, `tradedInAt` | 校验非负金额和日期后标记卖出；已卖出/换新时拒绝重复操作 |
+| `add-repair` | `repairDate`, `cost`, `reason`, `vendor`, `result`, `isDone` | 校验日期、非负费用和文本长度后创建维修记录 |
 | `update-repair` | `repairId` + 同上字段 | 更新当前资产的维修记录；不属于该资产时返回 404 |
 | `delete-repair` | `repairId` | 删除当前资产的维修记录（硬删除）；不属于该资产时返回 404 |
-| `upsert-warranty` | `startDate`, `endDate`, `notes` | 创建或更新保修信息 |
+| `upsert-warranty` | `startDate`, `endDate`, `notes` | 校验结束日期不早于开始日期后创建或更新保修信息 |
 | `update_reminder` | `reminderEnabled`, `reminderWarrantyDaysOverride` | 更新当前资产的保修提醒开关与提前天数覆盖 |
 
 ### `POST /assets/new`
@@ -152,7 +152,7 @@
 | 类型 | 说明 |
 |---|---|
 | Loader | 返回 `{ categories, tags, paymentTypes, paymentAccounts }` |
-| Action | 验证 `assetFormSchema`，调用 `createAsset`，成功 → redirect 详情页 |
+| Action | 验证 `assetFormSchema`（含可选 `purchaseReceipt`），调用 `createAsset`，成功 → redirect 详情页 |
 
 ### `POST /assets/:id/edit`
 

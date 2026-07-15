@@ -1,8 +1,9 @@
 import type { Route } from './+types/assets.$id'
 import { IconBell, IconCheck, IconCoin, IconLoader2, IconPencil, IconPlus, IconRefresh, IconTrash, IconX } from '@tabler/icons-react'
 import currency from 'currency.js'
-import React, { useMemo, useState } from 'react'
-import { data, redirect, useLoaderData, useNavigate, useNavigation, useSubmit } from 'react-router'
+import React, { useEffect, useMemo, useState } from 'react'
+import { data, redirect, useActionData, useLoaderData, useNavigate, useNavigation, useSubmit } from 'react-router'
+import { toast } from 'sonner'
 import { SubPageHeader } from '~/components/page-header'
 import {
   AlertDialog,
@@ -55,6 +56,8 @@ import {
 } from '~/db/queries/assets'
 import { getSettingsProfileByUserId } from '~/db/queries/settings'
 import { calculateHoldingDays, formatDaysWithYears, formatInteger, formatNumber, getAssetDetailPath, subAmount } from '~/lib/asset-meta'
+import { buildAssetTimeline } from '~/lib/asset-timeline'
+import { assetSaleSchema, repairRecordSchema, warrantySchema } from '~/lib/asset.schema'
 import { calcOneTimeDailyCost } from '~/lib/cost'
 import { createSupabaseServerClient } from '~/lib/supabase.server'
 
@@ -131,28 +134,39 @@ export async function action({ request, params }: Route.ActionArgs) {
   }
 
   if (intent === 'sell') {
-    const tradeInPrice = formData.get('tradeInPrice') as string
-    const tradedInAt = formData.get('tradedInAt') as string
-    await markAssetAsTradedIn(assetId, user.id, tradeInPrice, tradedInAt)
+    if (asset.tradedInAt)
+      return data({ ok: false, error: '该资产已卖出或换新，不能重复操作' }, { status: 400, headers })
+    const parsed = assetSaleSchema.safeParse({
+      tradeInPrice: String(formData.get('tradeInPrice') || ''),
+      tradedInAt: String(formData.get('tradedInAt') || ''),
+    })
+    if (!parsed.success)
+      return data({ ok: false, error: parsed.error.issues[0]?.message || '卖出信息无效' }, { status: 400, headers })
+    await markAssetAsTradedIn(assetId, user.id, parsed.data.tradeInPrice, parsed.data.tradedInAt)
     return data({ ok: true }, { headers })
   }
 
   if (intent === 'add-repair') {
+    const parsed = repairRecordSchema.safeParse({
+      repairDate: String(formData.get('repairDate') || ''),
+      cost: String(formData.get('cost') || '0'),
+      reason: String(formData.get('reason') || '') || undefined,
+      vendor: String(formData.get('vendor') || '') || undefined,
+      result: String(formData.get('result') || '') || undefined,
+      isDone: formData.get('isDone') === 'true',
+    })
+    if (!parsed.success)
+      return data({ ok: false, error: parsed.error.issues[0]?.message || '维修信息无效' }, { status: 400, headers })
     await createRepairRecord({
       assetId,
-      repairDate: formData.get('repairDate') as string,
-      cost: (formData.get('cost') as string) || '0',
-      reason: (formData.get('reason') as string) || undefined,
-      vendor: (formData.get('vendor') as string) || undefined,
-      result: (formData.get('result') as string) || undefined,
-      isDone: formData.get('isDone') === 'true',
+      ...parsed.data,
     })
     return data({ ok: true }, { headers })
   }
 
   if (intent === 'update-repair') {
     const repairId = formData.get('repairId') as string
-    const updated = await updateRepairRecord(assetId, repairId, {
+    const parsed = repairRecordSchema.safeParse({
       repairDate: formData.get('repairDate') as string,
       cost: (formData.get('cost') as string) || '0',
       reason: (formData.get('reason') as string) || undefined,
@@ -160,6 +174,9 @@ export async function action({ request, params }: Route.ActionArgs) {
       result: (formData.get('result') as string) || undefined,
       isDone: formData.get('isDone') === 'true',
     })
+    if (!repairId || !parsed.success)
+      return data({ ok: false, error: parsed.success ? '维修记录不存在' : parsed.error.issues[0]?.message }, { status: 400, headers })
+    const updated = await updateRepairRecord(assetId, repairId, parsed.data)
     if (!updated)
       throw new Response('Not Found', { status: 404, headers })
     return data({ ok: true }, { headers })
@@ -178,14 +195,13 @@ export async function action({ request, params }: Route.ActionArgs) {
     const endDate = String(formData.get('endDate') || '')
     const notes = String(formData.get('notes') || '')
 
-    if (!startDate || !endDate)
-      return data({ ok: false, error: '保修开始和结束日期不能为空' }, { headers })
+    const parsed = warrantySchema.safeParse({ startDate, endDate, notes: notes || undefined })
+    if (!parsed.success)
+      return data({ ok: false, error: parsed.error.issues[0]?.message || '保修信息无效' }, { status: 400, headers })
 
     await upsertWarranty({
       assetId,
-      startDate,
-      endDate,
-      notes: notes || undefined,
+      ...parsed.data,
     })
 
     return data({ ok: true }, { headers })
@@ -220,6 +236,7 @@ export default function AssetDetailPage() {
     tradeToAsset,
     globalReminderWarrantyDays,
   } = useLoaderData<typeof loader>()
+  const actionData = useActionData<typeof action>()
 
   const navigate = useNavigate()
   const submit = useSubmit()
@@ -256,6 +273,11 @@ export default function AssetDetailPage() {
   )
   const reminderFollowGlobal = reminderWarrantyDaysOverride === null
   const warrantyStatus = warranty ? (warranty.endDate >= todayDate ? '保修中' : '已过保') : null
+
+  useEffect(() => {
+    if (actionData && !actionData.ok && 'error' in actionData && actionData.error)
+      toast.error(String(actionData.error))
+  }, [actionData])
 
   const assetStatus = asset.tradedInAt ? (tradeToAsset ? '已换新' : '已卖出') : '持有中'
   const isTradeInOldAsset = Boolean(asset.tradedInAt && tradeToAsset)
@@ -364,6 +386,8 @@ export default function AssetDetailPage() {
   const basicRows: Array<{ label: string, value: React.ReactNode, primary?: boolean }> = []
   if (asset.purchasePrice)
     basicRows.push({ label: '购入价', value: formatInteger(asset.purchasePrice) })
+  if (asset.currentValue !== null)
+    basicRows.push({ label: '当前估价', value: formatInteger(asset.currentValue) })
   basicRows.push({ label: '每日成本', value: `${formatNumber(dailyCost)}/天`, primary: true })
   basicRows.push({ label: '持有天数', value: formatDaysWithYears(holdingDays) })
   if (paymentType)
@@ -372,6 +396,23 @@ export default function AssetDetailPage() {
     basicRows.push({ label: '支付方式', value: paymentAccount.name })
   if (category)
     basicRows.push({ label: '分类', value: `${category.emoji} ${category.name}` })
+  if (asset.purchaseReceipt) {
+    const isUrl = /^https?:\/\/\S+$/i.test(asset.purchaseReceipt)
+    basicRows.push({
+      label: '购买凭证',
+      value: isUrl
+        ? <a href={asset.purchaseReceipt} target="_blank" rel="noreferrer" className="break-all font-medium text-primary">查看凭证</a>
+        : <span className="break-words">{asset.purchaseReceipt}</span>,
+    })
+  }
+
+  const timeline = buildAssetTimeline({
+    purchaseDate: asset.purchaseDate,
+    tradedInAt: asset.tradedInAt,
+    isTradeIn: isTradeInOldAsset,
+    warranty,
+    repairs: repairRecords.map(record => ({ id: record.id, repairDate: record.repairDate, reason: record.reason })),
+  })
 
   const statusRows: Array<{ label: string, value: React.ReactNode, primary?: boolean }> = [
     {
@@ -492,6 +533,25 @@ export default function AssetDetailPage() {
           <DetailRow key={row.label} label={row.label} value={row.value} primary={row.primary} isLast={index === statusRows.length - 1} />
         ))}
       </SectionCard>
+
+      {timeline.length > 0 && (
+        <SectionCard title="资产时间线" className="mt-3">
+          <div className="flex flex-col">
+            {timeline.map((event, index) => (
+              <div key={event.id} className="flex gap-3 py-3" style={{ borderBottom: index < timeline.length - 1 ? '1px solid var(--color-hairline)' : undefined }}>
+                <span className="mt-1 size-2 shrink-0 rounded-full bg-primary" aria-hidden="true" />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-baseline justify-between gap-3">
+                    <span className="text-sm font-medium" style={{ color: 'var(--color-ink)' }}>{event.label}</span>
+                    <time className="shrink-0 text-xs tabular-nums" style={{ color: 'var(--color-muted)' }}>{event.date}</time>
+                  </div>
+                  {event.detail && <p className="mt-1 break-words text-xs" style={{ color: 'var(--color-muted)' }}>{event.detail}</p>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </SectionCard>
+      )}
 
       {warranty && (
         <SectionCard title="保修" className="mt-3" action={<span onClick={() => setWarrantyDialogOpen(true)}>编辑保修</span>}>
