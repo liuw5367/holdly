@@ -66,3 +66,10 @@ export const warrantySchema = z.object({
 })
 
 export type RepairRecordFormValues = z.infer<typeof repairRecordSchema>
+
+export const assetValueRecordSchema = z.object({
+  value: z.string().refine(value => Number.isFinite(Number(value)) && Number(value) >= 0, '估值不能小于 0'),
+  valuedOn: z.string().min(1, '请选择估值日期'),
+  source: z.enum(['manual', 'market', 'professional', 'baseline']),
+  notes: z.string().trim().max(500, '估值备注最多 500 个字符').optional(),
+})

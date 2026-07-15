@@ -3,7 +3,7 @@ import { and, eq, inArray, isNull } from 'drizzle-orm'
 import * as XLSX from 'xlsx'
 import { db } from '~/db'
 import { getAssetTagsByUserId } from '~/db/queries/assets'
-import { assets, categories, paymentAccounts, paymentTypes, planMembers, planRecordItems, planRecordMemberNotes, planRecords, plans, profiles } from '~/db/schema'
+import { assets, assetValueRecords, categories, paymentAccounts, paymentTypes, planMembers, planRecordItems, planRecordMemberNotes, planRecords, plans, profiles } from '~/db/schema'
 import { renderEmailLayout } from '~/lib/email-template.server'
 import { sendEmail } from '~/lib/email.server'
 
@@ -102,6 +102,31 @@ export async function generateExportXlsx(userId: string): Promise<Uint8Array> {
     { wch: 16 },
   ]
   XLSX.utils.book_append_sheet(wb, ws1, '资产列表')
+
+  const valueRows = await db
+    .select({
+      assetId: assetValueRecords.assetId,
+      value: assetValueRecords.value,
+      valuedOn: assetValueRecords.valuedOn,
+      source: assetValueRecords.source,
+      notes: assetValueRecords.notes,
+      createdAt: assetValueRecords.createdAt,
+    })
+    .from(assetValueRecords)
+    .where(and(eq(assetValueRecords.userId, userId), isNull(assetValueRecords.deletedAt)))
+    .orderBy(assetValueRecords.valuedOn)
+
+  const valueSheetRows = valueRows.map(row => ({
+    资产: assetNameMap.get(row.assetId) || row.assetId,
+    估值: Number(row.value),
+    估值日期: row.valuedOn,
+    来源: ({ manual: '手动估值', market: '市场参考', professional: '专业估值', baseline: '历史基线' })[row.source],
+    备注: row.notes || '',
+    创建时间: row.createdAt ? new Date(row.createdAt).toISOString().slice(0, 19) : '',
+  }))
+  const valueSheet = XLSX.utils.json_to_sheet(valueSheetRows)
+  valueSheet['!cols'] = [{ wch: 20 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 30 }, { wch: 20 }]
+  XLSX.utils.book_append_sheet(wb, valueSheet, '资产估值历史')
 
   // ==================== Sheet 2+: 各计划 ====================
   const userPlans = await db

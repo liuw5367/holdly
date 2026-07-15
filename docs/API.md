@@ -127,6 +127,7 @@
   tagIds: string[],
   warranty: { id, assetId, startDate, endDate, notes } | null,
   repairRecords: [{ id, repairDate, cost, reason, vendor, result, isDone }],
+  valueRecords: [{ id, value, valuedOn, source, notes }],
   dailyCost: number,
   holdingDays: number,
   allCategories, allTags, paymentTypes, paymentAccounts,
@@ -146,6 +147,8 @@
 | `delete-repair` | `repairId` | 删除当前资产的维修记录（硬删除）；不属于该资产时返回 404 |
 | `upsert-warranty` | `startDate`, `endDate`, `notes` | 校验结束日期不早于开始日期后创建或更新保修信息 |
 | `update_reminder` | `reminderEnabled`, `reminderWarrantyDaysOverride` | 更新当前资产的保修提醒开关与提前天数覆盖 |
+| `add-value-record` | `value`, `valuedOn`, `source`, `notes` | 在事务中新增估值并同步当前估值 |
+| `delete-value-record` | `recordId` | 软删除估值；若为最新记录则回退当前估值 |
 
 ### `POST /assets/new`
 

@@ -4,6 +4,7 @@ import { db } from '~/db'
 import {
   assets,
   assetTags,
+  assetValueRecords,
   categories,
   paymentAccounts,
   paymentTypes,
@@ -70,6 +71,84 @@ export async function getAssetRepairRecords(assetId: string) {
     .orderBy(repairRecords.repairDate)
 }
 
+export async function getAssetValueRecords(assetId: string, userId: string) {
+  return db
+    .select()
+    .from(assetValueRecords)
+    .where(and(
+      eq(assetValueRecords.assetId, assetId),
+      eq(assetValueRecords.userId, userId),
+      isNull(assetValueRecords.deletedAt),
+    ))
+    .orderBy(desc(assetValueRecords.valuedOn), desc(assetValueRecords.createdAt))
+}
+
+export interface AssetValueRecordInput {
+  value: string
+  valuedOn: string
+  source: 'manual' | 'market' | 'professional' | 'baseline'
+  notes?: string
+}
+
+export async function createAssetValueRecord(assetId: string, userId: string, input: AssetValueRecordInput) {
+  return db.transaction(async (tx) => {
+    const [asset] = await tx.select({ id: assets.id })
+      .from(assets)
+      .where(and(eq(assets.id, assetId), eq(assets.userId, userId), eq(assets.assetType, 'one_time'), isNull(assets.deletedAt)))
+      .limit(1)
+    if (!asset)
+      return null
+
+    const [record] = await tx.insert(assetValueRecords).values({ userId, assetId, ...input }).returning()
+    await tx.update(assets)
+      .set({ currentValue: input.value, updatedAt: new Date() })
+      .where(and(eq(assets.id, assetId), eq(assets.userId, userId)))
+    return record
+  })
+}
+
+export async function softDeleteAssetValueRecord(recordId: string, assetId: string, userId: string) {
+  return db.transaction(async (tx) => {
+    const [record] = await tx.select()
+      .from(assetValueRecords)
+      .where(and(
+        eq(assetValueRecords.id, recordId),
+        eq(assetValueRecords.assetId, assetId),
+        eq(assetValueRecords.userId, userId),
+        isNull(assetValueRecords.deletedAt),
+      ))
+      .limit(1)
+    if (!record)
+      return false
+
+    const [latest] = await tx.select({ id: assetValueRecords.id })
+      .from(assetValueRecords)
+      .where(and(eq(assetValueRecords.assetId, assetId), eq(assetValueRecords.userId, userId), isNull(assetValueRecords.deletedAt)))
+      .orderBy(desc(assetValueRecords.valuedOn), desc(assetValueRecords.createdAt))
+      .limit(1)
+
+    await tx.update(assetValueRecords)
+      .set({ deletedAt: new Date(), updatedAt: new Date() })
+      .where(eq(assetValueRecords.id, recordId))
+
+    if (latest?.id === recordId) {
+      const [previous] = await tx.select({ value: assetValueRecords.value })
+        .from(assetValueRecords)
+        .where(and(
+          eq(assetValueRecords.assetId, assetId),
+          eq(assetValueRecords.userId, userId),
+          isNull(assetValueRecords.deletedAt),
+        ))
+        .orderBy(desc(assetValueRecords.valuedOn), desc(assetValueRecords.createdAt))
+        .limit(1)
+      await tx.update(assets)
+        .set({ currentValue: previous?.value ?? null, updatedAt: new Date() })
+        .where(and(eq(assets.id, assetId), eq(assets.userId, userId)))
+    }
+    return true
+  })
+}
+
 // ========== 创建资产 ==========
 
 export interface CreateAssetInput {
@@ -123,6 +202,17 @@ export async function createAsset(input: CreateAssetInput) {
       .values(tagIds.map(tagId => ({ assetId: asset.id, tagId })))
   }
 
+  if (data.assetType === 'one_time' && data.currentValue !== undefined) {
+    await db.insert(assetValueRecords).values({
+      userId: data.userId,
+      assetId: asset.id,
+      value: data.currentValue,
+      valuedOn: data.purchaseDate || format(new Date(), 'yyyy-MM-dd'),
+      source: 'baseline',
+      notes: '创建资产时填写的初始估值',
+    })
+  }
+
   return asset.id
 }
 
@@ -149,6 +239,9 @@ export interface UpdateAssetInput {
 
 export async function updateAsset(id: string, userId: string, input: UpdateAssetInput) {
   const { tagIds, ...data } = input
+  const existing = await getAssetById(id, userId)
+  if (!existing)
+    return
 
   await db
     .update(assets)
@@ -158,7 +251,7 @@ export async function updateAsset(id: string, userId: string, input: UpdateAsset
       categoryId: data.categoryId,
       assetType: data.assetType,
       purchasePrice: data.purchasePrice ?? null,
-      currentValue: data.currentValue ?? null,
+      currentValue: data.currentValue ?? existing.currentValue,
       purchaseDate: data.purchaseDate ?? null,
       purchaseReceipt: data.purchaseReceipt ?? null,
       subscriptionPrice: data.subscriptionPrice ?? null,
@@ -178,6 +271,17 @@ export async function updateAsset(id: string, userId: string, input: UpdateAsset
     await db
       .insert(assetTags)
       .values(tagIds.map(tagId => ({ assetId: id, tagId })))
+  }
+
+  if (data.assetType === 'one_time' && data.currentValue !== undefined && data.currentValue !== existing.currentValue) {
+    await db.insert(assetValueRecords).values({
+      userId,
+      assetId: id,
+      value: data.currentValue,
+      valuedOn: format(new Date(), 'yyyy-MM-dd'),
+      source: 'manual',
+      notes: '编辑资产时更新估值',
+    })
   }
 }
 

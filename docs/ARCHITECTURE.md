@@ -296,6 +296,22 @@ OAuth 和注册邮件确认使用 PKCE code 回调。密码恢复及 OAuth-only 
 | `asset_id` | UUID | 复合 PK |
 | `tag_id` | UUID | 复合 PK |
 
+**`asset_value_records`** — 买断型资产估值历史
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `id` | UUID PK | |
+| `user_id` | UUID | 用户归属，用于每次查询过滤 |
+| `asset_id` | UUID | 关联资产，不声明外键 |
+| `value` | NUMERIC(12,2) | 非负估值金额 |
+| `valued_on` | DATE | 估值日期 |
+| `source` | TEXT ENUM | `manual` / `market` / `professional` / `baseline` |
+| `notes` | TEXT | 可选备注 |
+| `deleted_at` | TIMESTAMPTZ | 软删除 |
+| `created_at` / `updated_at` | TIMESTAMPTZ | |
+
+新增估值与同步 `assets.current_value` 在同一事务中完成。软删除最新估值时从剩余有效记录按 `valued_on DESC, created_at DESC` 回算当前值；无剩余记录时清空。迁移会为已有非空当前估值补一条去重的 `baseline` 记录。
+
 ### 保修与维修
 
 **`warranties`** — 保修信息（每个资产最多一条）

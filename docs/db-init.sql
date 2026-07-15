@@ -113,6 +113,23 @@ CREATE TABLE IF NOT EXISTS public.asset_tags (
   PRIMARY KEY (asset_id, tag_id)
 );
 
+-- 7a. asset_value_records（资产估值历史）
+CREATE TABLE IF NOT EXISTS public.asset_value_records (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL,
+  asset_id UUID NOT NULL,
+  value NUMERIC(12, 2) NOT NULL,
+  valued_on DATE NOT NULL,
+  source TEXT NOT NULL DEFAULT 'manual',
+  notes TEXT,
+  deleted_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS asset_value_records_asset_date_idx ON public.asset_value_records (asset_id, valued_on);
+CREATE INDEX IF NOT EXISTS asset_value_records_user_idx ON public.asset_value_records (user_id);
+
 -- 8. warranties（保修信息）
 CREATE TABLE IF NOT EXISTS public.warranties (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

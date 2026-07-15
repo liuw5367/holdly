@@ -1,6 +1,7 @@
 import {
   boolean,
   date,
+  index,
   integer,
   numeric,
   pgTable,
@@ -112,6 +113,23 @@ export const assets = pgTable('assets', {
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
 })
+
+// --- asset_value_records ---
+export const assetValueRecords = pgTable('asset_value_records', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id').notNull(),
+  assetId: uuid('asset_id').notNull(),
+  value: numeric('value', { precision: 12, scale: 2 }).notNull(),
+  valuedOn: date('valued_on').notNull(),
+  source: text('source', { enum: ['manual', 'market', 'professional', 'baseline'] }).notNull().default('manual'),
+  notes: text('notes'),
+  deletedAt: timestamp('deleted_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
+}, t => ({
+  assetDateIndex: index('asset_value_records_asset_date_idx').on(t.assetId, t.valuedOn),
+  userIndex: index('asset_value_records_user_idx').on(t.userId),
+}))
 
 // --- asset_tags ---
 export const assetTags = pgTable('asset_tags', {

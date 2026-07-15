@@ -3,6 +3,7 @@ import { IconBell, IconCheck, IconCoin, IconLoader2, IconPencil, IconPlus, IconR
 import currency from 'currency.js'
 import React, { useEffect, useMemo, useState } from 'react'
 import { data, redirect, useActionData, useLoaderData, useNavigate, useNavigation, useSubmit } from 'react-router'
+import { CartesianGrid, Line, LineChart, XAxis, YAxis } from 'recharts'
 import { toast } from 'sonner'
 import { SubPageHeader } from '~/components/page-header'
 import {
@@ -17,6 +18,7 @@ import {
 } from '~/components/ui/alert-dialog'
 import { Badge } from '~/components/ui/badge'
 import { Button } from '~/components/ui/button'
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from '~/components/ui/chart'
 import { DatePicker } from '~/components/ui/date-picker'
 import {
   Dialog,
@@ -31,15 +33,17 @@ import {
   FieldLabel,
 } from '~/components/ui/field'
 import { Input } from '~/components/ui/input'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '~/components/ui/select'
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '~/components/ui/select'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '~/components/ui/sheet'
 import { Switch } from '~/components/ui/switch'
 import { Textarea } from '~/components/ui/textarea'
 import {
+  createAssetValueRecord,
   createRepairRecord,
   deleteRepairRecord,
   getAssetById,
   getAssetRepairRecords,
+  getAssetValueRecords,
   getAssetWarranty,
   getAssetWithTags,
   getCategoriesByUserId,
@@ -50,6 +54,7 @@ import {
   getTradeToAsset,
   markAssetAsTradedIn,
   softDeleteAsset,
+  softDeleteAssetValueRecord,
   updateAssetReminder,
   updateRepairRecord,
   upsertWarranty,
@@ -57,7 +62,7 @@ import {
 import { getSettingsProfileByUserId } from '~/db/queries/settings'
 import { calculateHoldingDays, formatDaysWithYears, formatInteger, formatNumber, getAssetDetailPath, subAmount } from '~/lib/asset-meta'
 import { buildAssetTimeline } from '~/lib/asset-timeline'
-import { assetSaleSchema, repairRecordSchema, warrantySchema } from '~/lib/asset.schema'
+import { assetSaleSchema, assetValueRecordSchema, repairRecordSchema, warrantySchema } from '~/lib/asset.schema'
 import { calcOneTimeDailyCost } from '~/lib/cost'
 import { createSupabaseServerClient } from '~/lib/supabase.server'
 
@@ -77,10 +82,11 @@ export async function loader({ request, params }: Route.LoaderArgs) {
   if (asset.assetType === 'subscription')
     throw redirect(`/subscriptions/${asset.id}`)
 
-  const [tagIds, warranty, repairRecords, allCategories, allTags, paymentTypes, paymentAccounts, tradedFromAsset, tradeToAsset, profile] = await Promise.all([
+  const [tagIds, warranty, repairRecords, valueRecords, allCategories, allTags, paymentTypes, paymentAccounts, tradedFromAsset, tradeToAsset, profile] = await Promise.all([
     getAssetWithTags(assetId),
     getAssetWarranty(assetId),
     getAssetRepairRecords(assetId),
+    getAssetValueRecords(assetId, userId),
     getCategoriesByUserId(userId),
     getTagsByUserId(userId),
     getPaymentTypesByUserId(userId),
@@ -102,6 +108,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     tagIds,
     warranty,
     repairRecords,
+    valueRecords,
     dailyCost,
     holdingDays,
     allCategories,
@@ -190,6 +197,29 @@ export async function action({ request, params }: Route.ActionArgs) {
     return data({ ok: true }, { headers })
   }
 
+  if (intent === 'add-value-record') {
+    const parsed = assetValueRecordSchema.safeParse({
+      value: String(formData.get('value') || ''),
+      valuedOn: String(formData.get('valuedOn') || ''),
+      source: String(formData.get('source') || 'manual'),
+      notes: String(formData.get('notes') || '') || undefined,
+    })
+    if (!parsed.success)
+      return data({ ok: false, error: parsed.error.issues[0]?.message || '估值记录无效' }, { status: 400, headers })
+    const record = await createAssetValueRecord(assetId, user.id, parsed.data)
+    if (!record)
+      throw new Response('Not Found', { status: 404, headers })
+    return data({ ok: true }, { headers })
+  }
+
+  if (intent === 'delete-value-record') {
+    const recordId = String(formData.get('recordId') || '')
+    const deleted = recordId && await softDeleteAssetValueRecord(recordId, assetId, user.id)
+    if (!deleted)
+      throw new Response('Not Found', { status: 404, headers })
+    return data({ ok: true }, { headers })
+  }
+
   if (intent === 'upsert-warranty') {
     const startDate = String(formData.get('startDate') || '')
     const endDate = String(formData.get('endDate') || '')
@@ -226,6 +256,7 @@ export default function AssetDetailPage() {
     tagIds,
     warranty,
     repairRecords,
+    valueRecords,
     dailyCost,
     holdingDays,
     allCategories,
@@ -267,6 +298,12 @@ export default function AssetDetailPage() {
   const [sellPrice, setSellPrice] = useState('')
   const [sellDate, setSellDate] = useState(todayDate)
   const [reminderDialogOpen, setReminderDialogOpen] = useState(false)
+  const [valueDialogOpen, setValueDialogOpen] = useState(false)
+  const [valueAmount, setValueAmount] = useState('')
+  const [valuedOn, setValuedOn] = useState(todayDate)
+  const [valueSource, setValueSource] = useState<'manual' | 'market' | 'professional'>('manual')
+  const [valueNotes, setValueNotes] = useState('')
+  const [deletingValueRecordId, setDeletingValueRecordId] = useState<string | null>(null)
   const [reminderEnabled, setReminderEnabled] = useState(asset.reminderEnabled ?? false)
   const [reminderWarrantyDaysOverride, setReminderWarrantyDaysOverride] = useState<number | null>(
     asset.reminderWarrantyDaysOverride ?? null,
@@ -381,6 +418,29 @@ export default function AssetDetailPage() {
     setReminderEnabled(asset.reminderEnabled ?? false)
     setReminderWarrantyDaysOverride(asset.reminderWarrantyDaysOverride ?? null)
     setReminderDialogOpen(true)
+  }
+
+  function handleAddValueRecord() {
+    const fd = new FormData()
+    fd.append('intent', 'add-value-record')
+    fd.append('value', valueAmount)
+    fd.append('valuedOn', valuedOn)
+    fd.append('source', valueSource)
+    fd.append('notes', valueNotes)
+    submit(fd, { method: 'post' })
+    setValueDialogOpen(false)
+    setValueAmount('')
+    setValueNotes('')
+  }
+
+  function handleDeleteValueRecord() {
+    if (!deletingValueRecordId)
+      return
+    const fd = new FormData()
+    fd.append('intent', 'delete-value-record')
+    fd.append('recordId', deletingValueRecordId)
+    submit(fd, { method: 'post' })
+    setDeletingValueRecordId(null)
   }
 
   const basicRows: Array<{ label: string, value: React.ReactNode, primary?: boolean }> = []
@@ -533,6 +593,57 @@ export default function AssetDetailPage() {
           <DetailRow key={row.label} label={row.label} value={row.value} primary={row.primary} isLast={index === statusRows.length - 1} />
         ))}
       </SectionCard>
+
+      {asset.currentValue !== null && (
+        <SectionCard
+          title="价值历史"
+          className="mt-3"
+          action={<button type="button" onClick={() => setValueDialogOpen(true)}>记录估值</button>}
+        >
+          <div className="flex items-end justify-between gap-4 py-3">
+            <div>
+              <div className="text-xs" style={{ color: 'var(--color-muted)' }}>当前估值</div>
+              <div className="mt-1 text-2xl font-semibold tabular-nums" style={{ color: 'var(--color-ink)' }}>{formatInteger(asset.currentValue)}</div>
+            </div>
+            {valueRecords[0] && (
+              <time className="text-xs tabular-nums" style={{ color: 'var(--color-muted)' }}>
+                更新于
+                {valueRecords[0].valuedOn}
+              </time>
+            )}
+          </div>
+          {valueRecords.length > 1 && (
+            <ChartContainer config={{ value: { label: '估值', color: 'var(--color-primary)' } }} className="h-48 w-full aspect-auto">
+              <LineChart data={[...valueRecords].reverse()} margin={{ top: 12, right: 8, bottom: 0, left: 0 }}>
+                <CartesianGrid vertical={false} />
+                <XAxis dataKey="valuedOn" tickLine={false} axisLine={false} tickMargin={8} minTickGap={24} />
+                <YAxis hide domain={['dataMin', 'dataMax']} />
+                <ChartTooltip content={<ChartTooltipContent labelKey="valuedOn" />} />
+                <Line dataKey="value" type="monotone" stroke="var(--color-value)" strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 4 }} />
+              </LineChart>
+            </ChartContainer>
+          )}
+          <div className="flex flex-col">
+            {valueRecords.map((record, index) => (
+              <div key={record.id} className="flex items-start gap-3 py-3" style={{ borderTop: index > 0 || valueRecords.length > 1 ? '1px solid var(--color-hairline)' : undefined }}>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-baseline justify-between gap-3">
+                    <span className="font-medium tabular-nums" style={{ color: 'var(--color-ink)' }}>{formatInteger(record.value)}</span>
+                    <time className="text-xs tabular-nums" style={{ color: 'var(--color-muted)' }}>{record.valuedOn}</time>
+                  </div>
+                  <div className="mt-1 text-xs" style={{ color: 'var(--color-muted)' }}>
+                    {({ manual: '手动估值', market: '市场参考', professional: '专业估值', baseline: '历史基线' })[record.source]}
+                    {record.notes ? ` · ${record.notes}` : ''}
+                  </div>
+                </div>
+                <Button type="button" size="icon-sm" variant="ghost" aria-label="删除估值记录" onClick={() => setDeletingValueRecordId(record.id)}>
+                  <IconTrash />
+                </Button>
+              </div>
+            ))}
+          </div>
+        </SectionCard>
+      )}
 
       {timeline.length > 0 && (
         <SectionCard title="资产时间线" className="mt-3">
@@ -698,6 +809,10 @@ export default function AssetDetailPage() {
       </Sheet>
 
       <div className="mt-4 grid grid-cols-2 gap-2">
+        <Button className="h-10 text-[13px]" variant="secondary" onClick={() => setValueDialogOpen(true)}>
+          <IconCoin data-icon="inline-start" />
+          记录估值
+        </Button>
         {!warranty && (
           <Button className="h-10 text-[13px]" variant="default" onClick={() => setWarrantyDialogOpen(true)}>
             <IconPencil size={14} data-icon="inline-start" />
@@ -758,6 +873,61 @@ export default function AssetDetailPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <AlertDialog open={Boolean(deletingValueRecordId)} onOpenChange={open => !open && setDeletingValueRecordId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>删除估值记录</AlertDialogTitle>
+            <AlertDialogDescription>删除后，当前估值会回退到上一条有效记录；此操作不会删除资产。</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel variant="secondary">取消</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" onClick={handleDeleteValueRecord}>删除记录</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <Dialog open={valueDialogOpen} onOpenChange={setValueDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>记录资产估值</DialogTitle>
+          </DialogHeader>
+          <FieldGroup>
+            <Field>
+              <FieldLabel>估值金额</FieldLabel>
+              <Input type="number" min="0" step="0.01" inputMode="decimal" value={valueAmount} onChange={event => setValueAmount(event.target.value)} placeholder="0.00" />
+            </Field>
+            <Field>
+              <FieldLabel>估值日期</FieldLabel>
+              <DatePicker value={valuedOn} onChange={setValuedOn} />
+            </Field>
+            <Field>
+              <FieldLabel>估值来源</FieldLabel>
+              <Select value={valueSource} onValueChange={value => value && setValueSource(value as typeof valueSource)}>
+                <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    <SelectItem value="manual">手动估值</SelectItem>
+                    <SelectItem value="market">市场参考</SelectItem>
+                    <SelectItem value="professional">专业估值</SelectItem>
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            </Field>
+            <Field>
+              <FieldLabel>备注</FieldLabel>
+              <Textarea value={valueNotes} onChange={event => setValueNotes(event.target.value)} placeholder="可选，例如参考平台或成色说明" />
+            </Field>
+          </FieldGroup>
+          <DialogFooter>
+            <Button variant="secondary" onClick={() => setValueDialogOpen(false)}>取消</Button>
+            <Button onClick={handleAddValueRecord} disabled={isSubmitting || !valueAmount || !valuedOn}>
+              {isSubmitting && <IconLoader2 className="animate-spin" data-icon="inline-start" />}
+              保存估值
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={warrantyDialogOpen} onOpenChange={setWarrantyDialogOpen}>
         <DialogContent>
