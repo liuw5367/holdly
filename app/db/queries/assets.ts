@@ -730,33 +730,87 @@ export async function getLatestRenewal(assetId: string) {
   const rows = await db
     .select()
     .from(subscriptionRenewals)
-    .where(eq(subscriptionRenewals.assetId, assetId))
-    .orderBy(desc(subscriptionRenewals.startDate))
+    .where(and(eq(subscriptionRenewals.assetId, assetId), isNull(subscriptionRenewals.deletedAt)))
+    .orderBy(desc(subscriptionRenewals.startDate), desc(subscriptionRenewals.createdAt))
     .limit(1)
   return rows[0] || null
 }
 
+export async function getSubscriptionRenewals(assetId: string) {
+  return db.select()
+    .from(subscriptionRenewals)
+    .where(and(eq(subscriptionRenewals.assetId, assetId), isNull(subscriptionRenewals.deletedAt)))
+    .orderBy(desc(subscriptionRenewals.startDate), desc(subscriptionRenewals.createdAt))
+}
+
 export async function createRenewal(
   assetId: string,
-  billingCycle: 'monthly' | 'quarterly' | 'yearly',
-  price: string,
-  startDate: string,
+  userId: string,
+  input: { price: string, notes?: string, updateExpectedPrice: boolean },
 ) {
-  await db.insert(subscriptionRenewals).values({
-    assetId,
-    billingCycle,
-    price,
-    startDate,
-  })
+  return db.transaction(async (tx) => {
+    const [asset] = await tx.select()
+      .from(assets)
+      .where(and(eq(assets.id, assetId), eq(assets.userId, userId), eq(assets.assetType, 'subscription'), isNull(assets.deletedAt)))
+      .limit(1)
+    if (!asset || !asset.billingCycle || !asset.nextRenewalDate || asset.subscriptionStatus !== 'active')
+      return { status: 'invalid' as const }
 
-  // 同步更新资产的下次续费日期，供 dashboard/reminder 等场景使用
-  const base = new Date(`${startDate}T00:00:00`)
-  const nextDate = billingCycle === 'monthly'
-    ? addMonths(base, 1)
-    : billingCycle === 'quarterly'
-      ? addMonths(base, 3)
-      : addYears(base, 1)
-  await db.update(assets)
-    .set({ nextRenewalDate: format(nextDate, 'yyyy-MM-dd') })
-    .where(eq(assets.id, assetId))
+    const startDate = asset.nextRenewalDate
+    const confirmationKey = `${assetId}:${startDate}`
+    const [duplicate] = await tx.select({ id: subscriptionRenewals.id })
+      .from(subscriptionRenewals)
+      .where(and(eq(subscriptionRenewals.confirmationKey, confirmationKey), isNull(subscriptionRenewals.deletedAt)))
+      .limit(1)
+    if (duplicate)
+      return { status: 'duplicate' as const }
+
+    await tx.insert(subscriptionRenewals).values({
+      assetId,
+      billingCycle: asset.billingCycle,
+      price: input.price,
+      startDate,
+      notes: input.notes ?? null,
+      confirmationKey,
+    })
+
+    const nextRenewalDate = format(
+      asset.billingCycle === 'monthly'
+        ? addMonths(new Date(`${startDate}T00:00:00`), 1)
+        : asset.billingCycle === 'quarterly'
+          ? addMonths(new Date(`${startDate}T00:00:00`), 3)
+          : addYears(new Date(`${startDate}T00:00:00`), 1),
+      'yyyy-MM-dd',
+    )
+    await tx.update(assets)
+      .set({
+        nextRenewalDate,
+        subscriptionPrice: input.updateExpectedPrice ? input.price : asset.subscriptionPrice,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(assets.id, assetId), eq(assets.userId, userId)))
+    return { status: 'created' as const, nextRenewalDate }
+  })
+}
+
+export async function getSubscriptionsByUserId(userId: string) {
+  return db.select({
+    id: assets.id,
+    name: assets.name,
+    emoji: assets.emoji,
+    categoryId: assets.categoryId,
+    categoryName: categories.name,
+    subscriptionPrice: assets.subscriptionPrice,
+    billingCycle: assets.billingCycle,
+    nextRenewalDate: assets.nextRenewalDate,
+    subscriptionStatus: assets.subscriptionStatus,
+    subscriptionStoppedAt: assets.subscriptionStoppedAt,
+    paymentAccountId: assets.paymentAccountId,
+    paymentAccountName: paymentAccounts.name,
+  })
+    .from(assets)
+    .leftJoin(categories, eq(assets.categoryId, categories.id))
+    .leftJoin(paymentAccounts, eq(assets.paymentAccountId, paymentAccounts.id))
+    .where(and(eq(assets.userId, userId), eq(assets.assetType, 'subscription'), isNull(assets.deletedAt)))
+    .orderBy(assets.nextRenewalDate, assets.name)
 }

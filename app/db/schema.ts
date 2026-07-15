@@ -170,8 +170,14 @@ export const subscriptionRenewals = pgTable('subscription_renewals', {
   billingCycle: text('billing_cycle', { enum: ['monthly', 'quarterly', 'yearly'] }).notNull(),
   price: numeric('price', { precision: 10, scale: 2 }).notNull(),
   startDate: date('start_date').notNull(),
+  notes: text('notes'),
+  confirmationKey: text('confirmation_key'),
+  deletedAt: timestamp('deleted_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
-})
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
+}, t => ({
+  confirmationKeyUnique: unique('subscription_renewals_confirmation_key_unique').on(t.confirmationKey),
+}))
 
 // --- plans ---
 export const plans = pgTable('plans', {

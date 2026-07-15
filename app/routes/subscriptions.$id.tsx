@@ -1,8 +1,9 @@
 import type { Route } from './+types/subscriptions.$id'
 import { IconBell, IconCheck, IconLoader2, IconPencil, IconPlayerPlay, IconPlayerStop, IconRepeat, IconTrash, IconX } from '@tabler/icons-react'
-import { addMonths, addYears, format, isAfter } from 'date-fns'
-import { useMemo, useState } from 'react'
-import { data, redirect, useLoaderData, useNavigate, useNavigation, useSubmit } from 'react-router'
+import { addMonths, addYears, format } from 'date-fns'
+import { useEffect, useMemo, useState } from 'react'
+import { data, redirect, useActionData, useLoaderData, useNavigate, useNavigation, useSearchParams, useSubmit } from 'react-router'
+import { toast } from 'sonner'
 import { SubPageHeader } from '~/components/page-header'
 import {
   AlertDialog,
@@ -26,16 +27,17 @@ import {
 } from '~/components/ui/dialog'
 import { Field, FieldGroup, FieldLabel } from '~/components/ui/field'
 import { Input } from '~/components/ui/input'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '~/components/ui/select'
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '~/components/ui/select'
 import { Switch } from '~/components/ui/switch'
+import { Textarea } from '~/components/ui/textarea'
 import {
   createRenewal,
   getAssetById,
   getAssetWithTags,
   getCategoriesByUserId,
-  getLatestRenewal,
   getPaymentAccountsByUserId,
   getPaymentTypesByUserId,
+  getSubscriptionRenewals,
   getTagsByUserId,
   resumeSubscription,
   softDeleteAsset,
@@ -69,7 +71,8 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     getSettingsProfileByUserId(user.id),
   ])
 
-  const latestRenewal = await getLatestRenewal(asset.id)
+  const renewals = await getSubscriptionRenewals(asset.id)
+  const latestRenewal = renewals[0] || null
 
   const ended = asset.subscriptionStatus === 'cancelled' || Boolean(asset.subscriptionStoppedAt)
   const holdingDays = calculateAssetDurationDays({
@@ -96,6 +99,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     latestRenewal: latestRenewal
       ? { startDate: latestRenewal.startDate, price: latestRenewal.price }
       : null,
+    renewals,
   }, { headers })
 }
 
@@ -144,41 +148,21 @@ export async function action({ request, params }: Route.ActionArgs) {
       return data({ ok: false, error: '已取消的订阅无法续费' }, { headers })
 
     const price = String(formData.get('price') || '')
-    const startDate = String(formData.get('startDate') || '')
+    const notes = String(formData.get('notes') || '').trim()
+    const updateExpectedPrice = formData.get('updateExpectedPrice') === 'true'
 
     if (!price || Number(price) <= 0)
       return data({ ok: false, error: '金额必须大于 0' }, { headers })
-    if (!startDate)
-      return data({ ok: false, error: '缺少周期起始日期' }, { headers })
-
-    await createRenewal(params.id, asset.billingCycle!, price, startDate)
+    const result = await createRenewal(params.id, user.id, { price, notes: notes || undefined, updateExpectedPrice })
+    if (result.status === 'duplicate')
+      return data({ ok: false, error: '这个周期已经确认过续费' }, { status: 409, headers })
+    if (result.status === 'invalid')
+      return data({ ok: false, error: '订阅状态或下次续费日期无效' }, { status: 400, headers })
 
     return data({ ok: true }, { headers })
   }
 
   return data({ ok: false }, { headers })
-}
-
-function calcNextRenewalDate(
-  startDate?: string | null,
-  cycle?: 'monthly' | 'quarterly' | 'yearly' | null,
-  renewalStartDate?: string | null,
-) {
-  const baseDate = renewalStartDate || startDate
-  if (!baseDate || !cycle)
-    return null
-  const start = new Date(`${baseDate}T00:00:00`)
-  const today = new Date()
-  let next = new Date(start)
-  do {
-    if (cycle === 'monthly')
-      next = addMonths(next, 1)
-    else if (cycle === 'quarterly')
-      next = addMonths(next, 3)
-    else
-      next = addYears(next, 1)
-  } while (!isAfter(next, today))
-  return format(next, 'yyyy-MM-dd')
 }
 
 export default function SubscriptionDetailPage() {
@@ -193,7 +177,10 @@ export default function SubscriptionDetailPage() {
     dailyCost,
     globalReminderSubscriptionDays,
     latestRenewal,
+    renewals,
   } = useLoaderData<typeof loader>()
+  const actionData = useActionData<typeof action>()
+  const [searchParams, setSearchParams] = useSearchParams()
 
   const navigate = useNavigate()
   const submit = useSubmit()
@@ -205,7 +192,7 @@ export default function SubscriptionDetailPage() {
   const assetTags = allTags.filter(t => tagIds.includes(t.id))
   const paymentType = asset.paymentTypeId ? paymentTypes.find(p => p.id === asset.paymentTypeId) : null
   const paymentAccount = asset.paymentAccountId ? paymentAccounts.find(a => a.id === asset.paymentAccountId) : null
-  const nextRenewalDate = calcNextRenewalDate(asset.subscriptionStartDate || asset.purchaseDate, asset.billingCycle, latestRenewal?.startDate)
+  const nextRenewalDate = asset.nextRenewalDate
 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false)
@@ -218,6 +205,20 @@ export default function SubscriptionDetailPage() {
   const reminderFollowGlobal = reminderSubscriptionDaysOverride === null
   const [renewDialogOpen, setRenewDialogOpen] = useState(false)
   const [renewPrice, setRenewPrice] = useState(asset.subscriptionPrice || '')
+  const [renewNotes, setRenewNotes] = useState('')
+  const [updateExpectedPrice, setUpdateExpectedPrice] = useState(true)
+
+  useEffect(() => {
+    if (actionData && !actionData.ok && 'error' in actionData && actionData.error)
+      toast.error(String(actionData.error))
+  }, [actionData])
+
+  useEffect(() => {
+    if (searchParams.get('renew') === '1') {
+      setRenewDialogOpen(true)
+      setSearchParams({}, { replace: true })
+    }
+  }, [searchParams, setSearchParams])
 
   const renewStartDate = nextRenewalDate
   const periodEndDate = renewStartDate && asset.billingCycle
@@ -268,6 +269,8 @@ export default function SubscriptionDetailPage() {
 
   function handleOpenRenewDialog() {
     setRenewPrice(asset.subscriptionPrice || '')
+    setRenewNotes('')
+    setUpdateExpectedPrice(true)
     setRenewDialogOpen(true)
   }
 
@@ -277,7 +280,8 @@ export default function SubscriptionDetailPage() {
     const fd = new FormData()
     fd.append('intent', 'renew')
     fd.append('price', renewPrice)
-    fd.append('startDate', renewStartDate)
+    fd.append('notes', renewNotes)
+    fd.append('updateExpectedPrice', String(updateExpectedPrice))
     submit(fd, { method: 'post' })
     setRenewDialogOpen(false)
   }
@@ -370,6 +374,23 @@ export default function SubscriptionDetailPage() {
         ))}
       </SectionCard>
 
+      {renewals.length > 0 && (
+        <SectionCard title="续费历史" className="mt-3">
+          {renewals.map((renewal, index) => (
+            <div key={renewal.id} className="py-3" style={{ borderBottom: index < renewals.length - 1 ? '1px solid var(--color-hairline)' : undefined }}>
+              <div className="flex items-baseline justify-between gap-3">
+                <span className="font-medium tabular-nums" style={{ color: 'var(--color-ink)' }}>{formatInteger(renewal.price)}</span>
+                <time className="text-xs tabular-nums" style={{ color: 'var(--color-muted)' }}>{renewal.startDate}</time>
+              </div>
+              <div className="mt-1 text-xs" style={{ color: 'var(--color-muted)' }}>
+                {getBillingCycleLabel(renewal.billingCycle)}
+                {renewal.notes ? ` · ${renewal.notes}` : ''}
+              </div>
+            </div>
+          ))}
+        </SectionCard>
+      )}
+
       {!ended && (
         <Button className="mt-4 h-10 w-full text-[13px]" variant="default" onClick={handleOpenRenewDialog}>
           <IconRepeat size={14} data-icon="inline-start" />
@@ -461,14 +482,16 @@ export default function SubscriptionDetailPage() {
                     </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="global">
-                      跟随全局（
-                      {globalReminderSubscriptionDays}
-                      天）
-                    </SelectItem>
-                    <SelectItem value="3">3 天前</SelectItem>
-                    <SelectItem value="7">7 天前</SelectItem>
-                    <SelectItem value="14">14 天前</SelectItem>
+                    <SelectGroup>
+                      <SelectItem value="global">
+                        跟随全局（
+                        {globalReminderSubscriptionDays}
+                        天）
+                      </SelectItem>
+                      <SelectItem value="3">3 天前</SelectItem>
+                      <SelectItem value="7">7 天前</SelectItem>
+                      <SelectItem value="14">14 天前</SelectItem>
+                    </SelectGroup>
                   </SelectContent>
                 </Select>
               </Field>
@@ -526,6 +549,17 @@ export default function SubscriptionDetailPage() {
                 <span className="text-sm font-medium" style={{ color: 'var(--color-primary)' }}>{periodEndDate}</span>
               </Field>
             )}
+            <Field orientation="horizontal" className="justify-between">
+              <div>
+                <FieldLabel>更新后续预计价格</FieldLabel>
+                <p className="mt-1 text-xs" style={{ color: 'var(--color-muted)' }}>临时优惠或一次性补扣时可以关闭</p>
+              </div>
+              <Switch checked={updateExpectedPrice} onCheckedChange={setUpdateExpectedPrice} />
+            </Field>
+            <Field>
+              <FieldLabel>备注</FieldLabel>
+              <Textarea value={renewNotes} onChange={event => setRenewNotes(event.target.value)} placeholder="可选，例如涨价、优惠或补扣说明" />
+            </Field>
           </FieldGroup>
           <DialogFooter>
             <Button className="h-10" variant="secondary" onClick={() => setRenewDialogOpen(false)}>

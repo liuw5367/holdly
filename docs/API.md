@@ -193,7 +193,8 @@
   holdingDays: number,
   dailyCost: number,
   globalReminderSubscriptionDays: number,
-  latestRenewal: { startDate, price } | null
+  latestRenewal: { startDate, price } | null,
+  renewals: [{ id, billingCycle, price, startDate, notes }]
 }
 ```
 
@@ -205,7 +206,14 @@
 | `resume` | — | 恢复订阅，清除 `subscriptionStoppedAt` + `subscriptionStatus: 'active'` |
 | `delete` | — | 软删除，redirect `/assets` |
 | `update_reminder` | `reminderEnabled`, `reminderSubscriptionDaysOverride` | 更新续费提醒开关与提前天数覆盖 |
-| `renew` | `price`, `startDate` | 创建续费记录，并按计费周期推进 `nextRenewalDate` |
+| `renew` | `price`, `notes`, `updateExpectedPrice` | 服务端读取当前周期并幂等确认，只推进一个周期；可同步后续预计价格 |
+
+### `GET /subscriptions`
+
+| 类型 | 说明 |
+|---|---|
+| Loader | 返回当前用户全部未软删除订阅、分类、支付账户和服务端当天日期 |
+| 页面 | 客户端计算预计月/年成本与续费时间分组，支持状态、时间、分类和账户筛选 |
 
 ### `POST /subscriptions/new`
 

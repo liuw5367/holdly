@@ -350,7 +350,12 @@ OAuth 和注册邮件确认使用 PKCE code 回调。密码恢复及 OAuth-only 
 | `billing_cycle` | TEXT ENUM | 续费时的计费周期 |
 | `price` | NUMERIC(10,2) | 续费价格 |
 | `start_date` | DATE | 续费周期起始日 |
-| `created_at` | TIMESTAMPTZ | |
+| `notes` | TEXT | 可选价格变化说明 |
+| `confirmation_key` | TEXT UNIQUE | `${assetId}:${startDate}`，防止周期重复确认；旧记录为空 |
+| `deleted_at` | TIMESTAMPTZ | 软删除 |
+| `created_at` / `updated_at` | TIMESTAMPTZ | |
+
+续费确认在事务内锁定服务端读取的 `assets.next_renewal_date` 语义，写入确认键并仅推进一个计费周期。用户可选择是否把实际价格同步为后续 `subscription_price`。查询续费历史必须过滤 `deleted_at IS NULL`。
 
 ### 计划模块
 

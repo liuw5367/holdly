@@ -161,7 +161,11 @@ CREATE TABLE IF NOT EXISTS public.subscription_renewals (
   billing_cycle TEXT NOT NULL,
   price NUMERIC(10, 2) NOT NULL,
   start_date DATE NOT NULL,
-  created_at TIMESTAMPTZ DEFAULT NOW()
+  notes TEXT,
+  confirmation_key TEXT UNIQUE,
+  deleted_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- 11. plans（计划）

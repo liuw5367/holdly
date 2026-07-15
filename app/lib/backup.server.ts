@@ -3,7 +3,7 @@ import { and, eq, inArray, isNull } from 'drizzle-orm'
 import * as XLSX from 'xlsx'
 import { db } from '~/db'
 import { getAssetTagsByUserId } from '~/db/queries/assets'
-import { assets, assetValueRecords, categories, paymentAccounts, paymentTypes, planMembers, planRecordItems, planRecordMemberNotes, planRecords, plans, profiles } from '~/db/schema'
+import { assets, assetValueRecords, categories, paymentAccounts, paymentTypes, planMembers, planRecordItems, planRecordMemberNotes, planRecords, plans, profiles, subscriptionRenewals } from '~/db/schema'
 import { renderEmailLayout } from '~/lib/email-template.server'
 import { sendEmail } from '~/lib/email.server'
 
@@ -127,6 +127,29 @@ export async function generateExportXlsx(userId: string): Promise<Uint8Array> {
   const valueSheet = XLSX.utils.json_to_sheet(valueSheetRows)
   valueSheet['!cols'] = [{ wch: 20 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 30 }, { wch: 20 }]
   XLSX.utils.book_append_sheet(wb, valueSheet, '资产估值历史')
+
+  const renewalRows = await db.select({
+    assetId: subscriptionRenewals.assetId,
+    price: subscriptionRenewals.price,
+    billingCycle: subscriptionRenewals.billingCycle,
+    startDate: subscriptionRenewals.startDate,
+    notes: subscriptionRenewals.notes,
+    createdAt: subscriptionRenewals.createdAt,
+  })
+    .from(subscriptionRenewals)
+    .innerJoin(assets, eq(subscriptionRenewals.assetId, assets.id))
+    .where(and(eq(assets.userId, userId), isNull(assets.deletedAt), isNull(subscriptionRenewals.deletedAt)))
+    .orderBy(subscriptionRenewals.startDate)
+  const renewalSheet = XLSX.utils.json_to_sheet(renewalRows.map(row => ({
+    订阅: assetNameMap.get(row.assetId) || row.assetId,
+    续费价格: Number(row.price),
+    周期: ({ monthly: '月付', quarterly: '季付', yearly: '年付' })[row.billingCycle],
+    周期开始日: row.startDate,
+    备注: row.notes || '',
+    确认时间: row.createdAt ? new Date(row.createdAt).toISOString().slice(0, 19) : '',
+  })))
+  renewalSheet['!cols'] = [{ wch: 20 }, { wch: 12 }, { wch: 8 }, { wch: 12 }, { wch: 30 }, { wch: 20 }]
+  XLSX.utils.book_append_sheet(wb, renewalSheet, '订阅续费历史')
 
   // ==================== Sheet 2+: 各计划 ====================
   const userPlans = await db

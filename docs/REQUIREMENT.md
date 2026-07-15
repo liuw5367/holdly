@@ -315,6 +315,10 @@ emoji + 名称 + 状态指示点 + 每日成本 + 类型标签 + 分类 + 标签
 
 ### 5.5 订阅管理
 
+#### 订阅中心 `/subscriptions`
+
+集中展示活动订阅数量、月度/年度预计成本、逾期和近期续费数量。支持按状态、续费时间、分类、支付账户筛选，并提供确认续费、编辑和详情入口。预计成本使用 `currency.js` 按周期归一化。
+
 #### 新建订阅 `/subscriptions/new`
 
 订阅特有字段：订阅价（必填）、计费周期（月付/季付/年付，必填）、订阅日期，以及紧随订阅日期展示的下次续费日期预览。预览根据订阅日期和计费周期自动计算。其余字段同资产表单。
@@ -327,7 +331,7 @@ emoji + 名称 + 状态指示点 + 每日成本 + 类型标签 + 分类 + 标签
 - 状态：active/cancelled 徽标
 - **取消订阅**：弹出 Dialog，选择取消日期（日期选择器），确认后设置 `subscriptionStoppedAt` 和 `subscriptionStatus: 'cancelled'`（系统不再发送续费提醒）
 - **过期状态**：`expired` 表示订阅已自然过期（非手动取消），不可恢复
-- **记录续费**：弹出 Dialog，金额预填 `subscriptionPrice`（可编辑），展示计费周期、本次周期起止、下次续费日期预览。确认后创建 `subscription_renewals` 记录，`nextRenewalDate` 自动推进
+- **记录续费**：弹出 Dialog，金额预填 `subscriptionPrice`（可编辑），可填写备注，并选择是否更新后续预计价格。服务端以当前 `nextRenewalDate` 作为本次周期，每次确认只推进一个周期；确认键避免重复提交。详情展示完整续费历史。
 - **恢复订阅**：仅取消状态的订阅展示此按钮，一键恢复为 active 状态，清除 `subscriptionStoppedAt`
 - **编辑**：跳转 `/subscriptions/:id/edit`
 - **删除**：二次确认 Alert Dialog，确认后软删除并跳转 `/assets`
