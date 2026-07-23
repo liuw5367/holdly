@@ -13,7 +13,7 @@ import { data, Link, redirect, useFetcher, useLoaderData, useNavigate, useSearch
 import { SubPageHeader } from '~/components/page-header'
 import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '~/components/ui/alert-dialog'
 import { Badge } from '~/components/ui/badge'
-import { Button } from '~/components/ui/button'
+import { Button, buttonVariants } from '~/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '~/components/ui/dropdown-menu'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '~/components/ui/select'
 import {
@@ -111,10 +111,13 @@ export default function PaymentAccountsPage() {
           </SelectContent>
         </Select>
 
-        <Button render={<Link to={`/settings/payment-accounts/new${newAccountQuery}`} />} className="shrink-0">
+        <Link
+          to={`/settings/payment-accounts/new${newAccountQuery}`}
+          className={buttonVariants({ className: 'shrink-0' })}
+        >
           <IconPlus data-icon="inline-start" />
           添加账户
-        </Button>
+        </Link>
       </div>
 
       {filteredAccounts.length > 0
