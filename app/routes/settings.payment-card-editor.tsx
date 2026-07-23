@@ -11,6 +11,11 @@ import { createSettingsCreditCard, getSettingsPaymentAccountById, getSettingsPay
 import { creditCardSchema } from '~/lib/payment-account.schema'
 import { createSupabaseServerClient } from '~/lib/supabase.server'
 
+const repaymentRuleItems = [
+  { label: '每月固定日', value: 'fixed_day' },
+  { label: '出账后若干天', value: 'days_after_statement' },
+]
+
 export async function loader({ request, params }: Route.LoaderArgs) {
   const { supabase, headers } = createSupabaseServerClient(request)
   const { data: { user } } = await supabase.auth.getUser()
@@ -61,6 +66,8 @@ export default function PaymentCardEditor() {
   const navigation = useNavigation()
   const isSubmitting = navigation.state === 'submitting'
   const errors = actionData?.errors
+  const paymentTypeItems = paymentTypes.map(type => ({ label: type.name, value: type.id }))
+
   return (
     <div className="pb-8">
       <SubPageHeader backTo={account ? `/settings/payment-accounts/${account.id}` : '/settings/payment-accounts'} title={account ? '编辑信用卡' : '添加信用卡'} />
@@ -69,9 +76,9 @@ export default function PaymentCardEditor() {
         <FieldGroup>
           <Field data-invalid={Boolean(errors?.paymentTypeId) || undefined}>
             <FieldLabel>支付类型</FieldLabel>
-            <Select name="paymentTypeId" defaultValue={account?.paymentTypeId || paymentTypes[0]?.id}>
+            <Select items={paymentTypeItems} name="paymentTypeId" defaultValue={account?.paymentTypeId || paymentTypes[0]?.id}>
               <SelectTrigger className="w-full"><SelectValue placeholder="请选择支付类型" /></SelectTrigger>
-              <SelectContent><SelectGroup>{paymentTypes.map(type => <SelectItem key={type.id} value={type.id}>{type.name}</SelectItem>)}</SelectGroup></SelectContent>
+              <SelectContent><SelectGroup>{paymentTypeItems.map(item => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}</SelectGroup></SelectContent>
             </Select>
             <FieldError>{errors?.paymentTypeId?.[0]}</FieldError>
           </Field>
@@ -98,12 +105,11 @@ export default function PaymentCardEditor() {
             </Field>
             <Field>
               <FieldLabel>还款规则</FieldLabel>
-              <Select name="repaymentRule" defaultValue={account?.repaymentRule || 'fixed_day'}>
+              <Select items={repaymentRuleItems} name="repaymentRule" defaultValue={account?.repaymentRule || 'fixed_day'}>
                 <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectGroup>
-                    <SelectItem value="fixed_day">每月固定日</SelectItem>
-                    <SelectItem value="days_after_statement">出账后若干天</SelectItem>
+                    {repaymentRuleItems.map(item => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}
                   </SelectGroup>
                 </SelectContent>
               </Select>

@@ -406,6 +406,36 @@ text-align: center
 - 纯展示型 Badge、状态标签不因 hover 改变颜色；只有可点击元素提供 hover 反馈。
 - 禁用控件不响应 hover，并维持清晰的禁用视觉状态。
 
+### 13.5 Select 选中项显示
+
+项目使用 Base UI 版 shadcn Select。`SelectItem` 的子元素只负责渲染下拉列表，空的 `<SelectValue />` 不会根据这些子元素自动查找显示名称。根 `Select` 没有提供 `items` 时，触发器会直接显示选中项的 `value`，UUID、状态 key 等内部值会暴露给用户。
+
+优先把同一组 `{ value, label }` 数据同时传给 `Select` 和 `SelectItem`：
+
+```tsx
+const items = [
+  { value: 'active', label: '活动中' },
+  { value: 'cancelled', label: '已停止' },
+]
+
+<Select items={items} value={status} onValueChange={setStatus}>
+  <SelectTrigger>
+    <SelectValue />
+  </SelectTrigger>
+  <SelectContent>
+    <SelectGroup>
+      {items.map(item => (
+        <SelectItem key={item.value} value={item.value}>
+          {item.label}
+        </SelectItem>
+      ))}
+    </SelectGroup>
+  </SelectContent>
+</Select>
+```
+
+如果不能提供 `items`，必须在 `SelectValue` 中显式完成 `value` 到显示名称的映射。禁止在没有 `items` 或自定义映射时使用空的 `<SelectValue />`。提交前应检查触发器的收起状态，不能只检查展开后的下拉列表。
+
 ---
 
 ## 14. Do / Don't

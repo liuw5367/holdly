@@ -911,7 +911,15 @@ export default function AssetDetailPage() {
             </Field>
             <Field>
               <FieldLabel>估值来源</FieldLabel>
-              <Select value={valueSource} onValueChange={value => value && setValueSource(value as typeof valueSource)}>
+              <Select
+                items={[
+                  { label: '手动估值', value: 'manual' },
+                  { label: '市场参考', value: 'market' },
+                  { label: '专业估值', value: 'professional' },
+                ]}
+                value={valueSource}
+                onValueChange={value => value && setValueSource(value as typeof valueSource)}
+              >
                 <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectGroup>

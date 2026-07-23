@@ -201,11 +201,13 @@ function formatCurrencyGroups(values: Record<string, number>) {
   return groups.length > 0 ? groups.map(([code, value]) => `${code} ${formatInteger(value)}`).join(' · ') : '—'
 }
 
-function Filter({ value, onChange, options }: { value: string, onChange: (value: string) => void, options: string[][] }) {
+export function Filter({ value, onChange, options }: { value: string, onChange: (value: string) => void, options: string[][] }) {
+  const items = options.map(([optionValue, label]) => ({ label, value: optionValue }))
+
   return (
-    <Select value={value} onValueChange={next => next && onChange(next)}>
+    <Select items={items} value={value} onValueChange={next => next && onChange(next)}>
       <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
-      <SelectContent><SelectGroup>{options.map(([optionValue, label]) => <SelectItem key={optionValue} value={optionValue}>{label}</SelectItem>)}</SelectGroup></SelectContent>
+      <SelectContent><SelectGroup>{items.map(item => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}</SelectGroup></SelectContent>
     </Select>
   )
 }

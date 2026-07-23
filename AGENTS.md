@@ -26,6 +26,7 @@ This file provides guidance to agent when working with code in this repository.
 - 使用 shadcn/ui 组件 + Tailwind v4，避免使用原生 HTML 元素（`<button>`、`<input>`）。
 - **认证页面例外**：`/login`、`/register`、`/forgot-password` 使用原生 HTML 元素 + CSS 变量（`--color-*`），不使用 shadcn 组件。设计规范见 `docs/DESIGN.md`。
 - `app/components/ui/` 下的文件允许自由 re-export（ESLint 规则 `react-refresh/only-export-components` 已禁用）。
+- Base UI 版 Select 必须给根 `Select` 传入 `{ value, label }[]` 的 `items`，或在 `SelectValue` 中显式映射显示名称；禁止在两者都没有时使用空的 `<SelectValue />`，否则触发器会显示内部 key。
 - 按钮异步操作必须有独立 loading 状态（`disabled` + spinner），禁止因一个按钮 loading 而禁用全页按钮。
 - 路由切换时顶部显示 NProgress 进度条。
 - 响应式：桌面端侧边栏，移动端底部 Tab。
