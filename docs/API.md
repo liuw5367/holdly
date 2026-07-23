@@ -208,13 +208,6 @@
 | `update_reminder` | `reminderEnabled`, `reminderSubscriptionDaysOverride` | 更新续费提醒开关与提前天数覆盖 |
 | `renew` | `price`, `expectedStartDate`, `notes`, `updateExpectedPrice` | 锁定资产行并核对页面周期令牌后幂等确认，只推进一个周期；可同步后续预计价格 |
 
-### `GET /subscriptions`
-
-| 类型 | 说明 |
-|---|---|
-| Loader | 返回当前用户全部未软删除订阅、分类、支付账户和服务端当天日期 |
-| 页面 | 客户端计算预计月/年成本与续费时间分组，支持状态、时间、分类和账户筛选 |
-
 ### `POST /subscriptions/new`
 
 | 类型 | 说明 |
@@ -473,7 +466,7 @@
 | 文件 | 职责 |
 |---|---|
 | `assets.ts` | 资产 CRUD、保修、维修、换新、提醒与续费记录 |
-| `dashboard.ts` | Dashboard 聚合（KPI、分类花费、趋势与到期项）|
+| `dashboard.ts` | Dashboard 按买断/订阅聚合 KPI、分类花费、趋势与到期项；订阅预计费用按币种分组 |
 | `plans.read.ts` / `plans.write.ts` | 计划、成员和月记录的读取与写入 |
 | `plans.invite.ts` / `plans.import.ts` | 邀请链接与 CSV 历史导入 |
 | `plans.types.ts` / `plans.ts` | 计划类型、纯函数与统一导出入口 |

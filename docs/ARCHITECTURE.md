@@ -507,7 +507,7 @@ root.tsx
 └── app-shell.tsx（loader 检查认证）
     ├── /dashboard
     ├── /assets/*
-    ├── /subscriptions/*
+    ├── /subscriptions/new, /subscriptions/:id, /subscriptions/:id/edit
     ├── /plans/*
     └── /settings/*
 ```

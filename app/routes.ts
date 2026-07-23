@@ -20,7 +20,6 @@ export default [
     route('account/update-password', 'routes/account.update-password.tsx'),
     route('dashboard', 'routes/dashboard.tsx'),
     route('assets', 'routes/assets._index.tsx'),
-    route('subscriptions', 'routes/subscriptions._index.tsx'),
     route('assets/new', 'routes/assets.new.tsx'),
     route('subscriptions/new', 'routes/subscriptions.new.tsx'),
     route('assets/:id', 'routes/assets.$id.tsx'),

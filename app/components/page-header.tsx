@@ -1,4 +1,5 @@
 import type { TablerIcon } from '@tabler/icons-react'
+import type { ReactNode } from 'react'
 import { IconArrowLeft, IconDots } from '@tabler/icons-react'
 import { Link } from 'react-router'
 import { Button } from '~/components/ui/button'
@@ -113,9 +114,10 @@ interface MainPageHeaderProps {
   title: string
   action?: MainPageAction
   actions?: MainPageAction[]
+  trailing?: ReactNode
 }
 
-export function MainPageHeader({ title, action, actions }: MainPageHeaderProps) {
+export function MainPageHeader({ title, action, actions, trailing }: MainPageHeaderProps) {
   const list = (action ? [action] : actions) || []
   return (
     <div className="mb-5 flex items-center justify-between">
@@ -126,8 +128,9 @@ export function MainPageHeader({ title, action, actions }: MainPageHeaderProps) 
         {title}
       </h1>
 
-      {list.length > 0 && (
+      {(trailing || list.length > 0) && (
         <div className="flex gap-2">
+          {trailing}
           {list.map(action => (
             <Link
               key={action.label}

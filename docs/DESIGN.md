@@ -308,12 +308,14 @@ text-align: center
 
 **布局**：单列
 
-- **KPI 卡片**：2×2 网格，每卡片显示指标名（`muted` 12px）+ 数值（`ink` 20px bold）。卡片背景 `surface-card`，圆角 `radius-lg`，内边距 16px。
+- **KPI 卡片**：2×2 网格，每卡片显示指标名（`muted` 12px）+ 数值（`ink` 20px bold）。买断视图展示持有中数量、今日持有成本、资产原值和近一年持有成本；订阅视图展示活动订阅、月度预计、年度预计和需关注数量。卡片背景 `surface-card`，圆角 `radius-lg`，内边距 16px。
 - **分类花费**：分段标题 + 水平进度条。进度条高度 6px，背景 `hairline`，填充 `primary`。右侧显示百分比和金额。
 - **月度趋势图**：Recharts AreaChart，高度 200px，渐变填充。坐标轴文字 `muted` 12px。
 - **即将到期**：列表项 emoji + 名称 + 到期信息。顶部警告横幅背景 `warning` 浅底。
 
-**买断/订阅切换**：Toggle Group 组件，切换分类花费和趋势图的数据视图。
+**买断/订阅切换**：统计总览标题右侧只放置一个 Toggle Group，统一切换 KPI、分类花费和趋势图的数据视图。视觉沿用原统计页的紧凑分段按钮：外层和内部选项均使用 `radius-md`，禁止被 Toggle Group 的首尾 `radius-lg` 覆盖；外层采用 `hairline` 细边框和 2px 内边距，内部选项高 24px、水平内边距 8px、12px 文字；选中项使用 `primary` 实心背景和 `primary-foreground` 文字，未选中项不填充背景。移动端保持单行，切换状态通过 URL 查询参数保留。
+
+订阅视图的四张 KPI 卡片与买断视图使用完全相同的卡片结构、字号和间距。人民币金额统一显示 `¥`，不向用户展示内部币种代码 `CNY`；非人民币金额仍显示对应币种代码，禁止误标为人民币。
 
 ### 12.2 资产列表 (`/assets`)
 
@@ -401,7 +403,8 @@ text-align: center
 
 - 主按钮 hover 使用 `primary-active`，保持白色文字。
 - 普通 `outline`、`ghost` 按钮 hover 使用 `primary/10` 浅底和 `primary` 文字，避免回退到中性灰色。
-- 切换控件未选中项沿用普通按钮的主题色 hover；选中样式由具体组件语义决定。
+- `Toggle`、`ToggleGroup` 的选中态必须使用主题色：默认采用 `primary` 背景、`primary-foreground` 文字，hover 使用 `primary-active`。禁止使用 `muted`、`secondary` 或任何中性灰色表示选中。
+- 切换控件未选中项沿用普通按钮的主题色 hover；只有危险、成功等明确业务语义可以覆盖默认选中颜色。
 - 危险操作保持 `destructive` 语义色，不套用主题色 hover。
 - 纯展示型 Badge、状态标签不因 hover 改变颜色；只有可点击元素提供 hover 反馈。
 - 禁用控件不响应 hover，并维持清晰的禁用视觉状态。

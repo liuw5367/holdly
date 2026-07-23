@@ -858,32 +858,3 @@ export async function createRenewal(
     return { status: 'created' as const, nextRenewalDate }
   })
 }
-
-export async function getSubscriptionsByUserId(userId: string) {
-  return db.select({
-    id: assets.id,
-    name: assets.name,
-    emoji: assets.emoji,
-    categoryId: assets.categoryId,
-    categoryName: categories.name,
-    subscriptionPrice: assets.subscriptionPrice,
-    billingCycle: assets.billingCycle,
-    nextRenewalDate: assets.nextRenewalDate,
-    subscriptionStatus: assets.subscriptionStatus,
-    subscriptionStoppedAt: assets.subscriptionStoppedAt,
-    paymentAccountId: assets.paymentAccountId,
-    paymentAccountName: paymentAccounts.name,
-    paymentAccountCurrencyCode: paymentAccounts.currencyCode,
-    paymentAccountBankName: paymentAccounts.bankName,
-    paymentAccountLastFour: paymentAccounts.lastFour,
-  })
-    .from(assets)
-    .leftJoin(categories, eq(assets.categoryId, categories.id))
-    .leftJoin(paymentAccounts, and(
-      eq(assets.paymentAccountId, paymentAccounts.id),
-      eq(paymentAccounts.userId, userId),
-      isNull(paymentAccounts.deletedAt),
-    ))
-    .where(and(eq(assets.userId, userId), eq(assets.assetType, 'subscription'), isNull(assets.deletedAt)))
-    .orderBy(assets.nextRenewalDate, assets.name)
-}

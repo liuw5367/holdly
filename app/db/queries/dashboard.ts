@@ -2,16 +2,16 @@ import currency from 'currency.js'
 import { addDays, addMonths, addYears, endOfMonth, format, startOfMonth, subDays, subMonths } from 'date-fns'
 import { and, eq, gte, isNull, lte } from 'drizzle-orm'
 import { db } from '~/db'
-import { assets, categories, warranties } from '~/db/schema'
-import { addAmounts, divideAmount, multiplyAmount, sumAmounts } from '~/lib/amount'
+import { assets, categories, paymentAccounts, warranties } from '~/db/schema'
+import { addAmounts, sumAmounts } from '~/lib/amount'
 import {
   calcOneTimeCostRange,
   calcOneTimeDailyCost,
   calcSoldOneTimeCostRange,
   calcSubscriptionCostRange,
-  calcSubscriptionDailyCost,
 } from '~/lib/cost'
 import { formatExpiryCountdown } from '~/lib/expiry'
+import { getRenewalWindow, toMonthlySubscriptionCost, toYearlySubscriptionCost } from '~/lib/subscription-renewal'
 import { isSubscriptionActive } from '~/lib/subscription-status'
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -57,6 +57,7 @@ interface AssetOverview {
   subscriptionStartDate: string | null
   tradedInAt: string | null
   tradeInPrice: string | null
+  paymentAccountCurrencyCode: string | null
   reminderEnabled: boolean | null
 }
 
@@ -67,12 +68,24 @@ interface CategoryMeta {
 }
 
 export interface DashboardData {
-  kpi: {
-    dailyCostTotal: number
-    subscriptionMonthlyTotal: number
-    subscriptionYearlyTotal: number
-    activeAssetCount: number
-    activeAssetPurchaseTotal: number
+  kpiByType: {
+    one_time: {
+      activeCount: number
+      dailyCostTotal: number
+      purchaseTotal: number
+      yearlyCostTotal: number
+    }
+    subscription: {
+      activeCount: number
+      monthlyCostByCurrency: Record<string, number>
+      yearlyCostByCurrency: Record<string, number>
+      attentionCount: number
+      attentionDetail: {
+        overdue: number
+        sevenDays: number
+        thirtyDays: number
+      }
+    }
   }
   statsByType: Record<AssetTypeStatsModel, {
     categorySpending: CategorySpendingItem[]
@@ -85,6 +98,49 @@ export interface DashboardData {
     detail: string
     reminderEnabled: boolean
   }[]
+}
+
+function calculateAssetCostRange(
+  asset: AssetOverview,
+  rangeStart: Date,
+  rangeEnd: Date,
+): number {
+  if (asset.assetType === 'subscription' && asset.subscriptionPrice) {
+    const startDate = asset.subscriptionStartDate || asset.purchaseDate
+    if (!startDate)
+      return 0
+    return calcSubscriptionCostRange(
+      Number(asset.subscriptionPrice),
+      startDate,
+      asset.subscriptionStoppedAt,
+      rangeStart,
+      rangeEnd,
+    )
+  }
+
+  if (asset.assetType !== 'one_time' || !asset.purchasePrice || !asset.purchaseDate)
+    return 0
+
+  if (asset.tradedInAt && asset.tradeInPrice) {
+    return calcSoldOneTimeCostRange(
+      Number(asset.purchasePrice),
+      asset.purchaseDate,
+      Number(asset.tradeInPrice),
+      asset.tradedInAt,
+      rangeStart,
+      rangeEnd,
+    )
+  }
+
+  if (asset.tradedInAt)
+    return 0
+
+  return calcOneTimeCostRange(
+    Number(asset.purchasePrice),
+    asset.purchaseDate,
+    rangeStart,
+    rangeEnd,
+  )
 }
 
 function buildCategorySpendingByType(
@@ -100,40 +156,7 @@ function buildCategorySpendingByType(
     if (a.assetType !== assetType || !a.categoryId)
       continue
 
-    let cost = 0
-
-    if (assetType === 'subscription' && a.subscriptionPrice) {
-      const startDate = a.subscriptionStartDate || a.purchaseDate
-      if (startDate) {
-        cost = calcSubscriptionCostRange(
-          Number(a.subscriptionPrice),
-          startDate,
-          a.subscriptionStoppedAt,
-          rangeStart,
-          rangeEnd,
-        )
-      }
-    }
-    else if (assetType === 'one_time' && a.purchasePrice && a.purchaseDate) {
-      if (a.tradedInAt && a.tradeInPrice) {
-        cost = calcSoldOneTimeCostRange(
-          Number(a.purchasePrice),
-          a.purchaseDate,
-          Number(a.tradeInPrice),
-          a.tradedInAt,
-          rangeStart,
-          rangeEnd,
-        )
-      }
-      else if (!a.tradedInAt) {
-        cost = calcOneTimeCostRange(
-          Number(a.purchasePrice),
-          a.purchaseDate,
-          rangeStart,
-          rangeEnd,
-        )
-      }
-    }
+    const cost = calculateAssetCostRange(a, rangeStart, rangeEnd)
 
     if (cost > 0)
       catSpending[a.categoryId] = currency(catSpending[a.categoryId] || 0).add(cost).value
@@ -177,40 +200,7 @@ function buildMonthlyTrendByType(
       if (a.assetType !== assetType)
         continue
 
-      let cost = 0
-
-      if (assetType === 'subscription' && a.subscriptionPrice) {
-        const startDate = a.subscriptionStartDate || a.purchaseDate
-        if (startDate) {
-          cost = calcSubscriptionCostRange(
-            Number(a.subscriptionPrice),
-            startDate,
-            a.subscriptionStoppedAt,
-            monthStart,
-            monthEnd,
-          )
-        }
-      }
-      else if (assetType === 'one_time' && a.purchasePrice && a.purchaseDate) {
-        if (a.tradedInAt && a.tradeInPrice) {
-          cost = calcSoldOneTimeCostRange(
-            Number(a.purchasePrice),
-            a.purchaseDate,
-            Number(a.tradeInPrice),
-            a.tradedInAt,
-            monthStart,
-            monthEnd,
-          )
-        }
-        else if (!a.tradedInAt) {
-          cost = calcOneTimeCostRange(
-            Number(a.purchasePrice),
-            a.purchaseDate,
-            monthStart,
-            monthEnd,
-          )
-        }
-      }
+      const cost = calculateAssetCostRange(a, monthStart, monthEnd)
 
       if (cost > 0)
         monthCost = currency(monthCost).add(cost).value
@@ -244,9 +234,15 @@ export async function getDashboardData(userId: string): Promise<DashboardData> {
       subscriptionStartDate: assets.subscriptionStartDate,
       tradedInAt: assets.tradedInAt,
       tradeInPrice: assets.tradeInPrice,
+      paymentAccountCurrencyCode: paymentAccounts.currencyCode,
       reminderEnabled: assets.reminderEnabled,
     })
     .from(assets)
+    .leftJoin(paymentAccounts, and(
+      eq(assets.paymentAccountId, paymentAccounts.id),
+      eq(paymentAccounts.userId, userId),
+      isNull(paymentAccounts.deletedAt),
+    ))
     .where(and(eq(assets.userId, userId), isNull(assets.deletedAt)))
 
   // 2. 获取所有分类
@@ -266,58 +262,55 @@ export async function getDashboardData(userId: string): Promise<DashboardData> {
     return true
   })
 
-  // 4. 计算 KPI
-  // 4a. 日均持有成本（今日快照）
-  let subscriptionDailyCost = 0
-  for (const a of allAssets) {
-    if (a.assetType !== 'subscription' || !a.subscriptionPrice || !a.billingCycle)
-      continue
-    if (a.tradedInAt)
-      continue
-    if (!isSubscriptionActive(a, todayStr))
-      continue
-    subscriptionDailyCost = addAmounts(subscriptionDailyCost, calcSubscriptionDailyCost(Number(a.subscriptionPrice), a.billingCycle))
-  }
-
+  // 4. 计算买断 KPI
   let oneTimeDailyCost = 0
-  for (const a of allAssets) {
+  const activeOneTimeAssets = activeAssets.filter(a => a.assetType === 'one_time')
+  for (const a of activeOneTimeAssets) {
     if (a.assetType !== 'one_time' || !a.purchasePrice || !a.purchaseDate || a.tradedInAt)
       continue
     oneTimeDailyCost = addAmounts(oneTimeDailyCost, calcOneTimeDailyCost(Number(a.purchasePrice), a.purchaseDate))
   }
 
-  const totalDailyCost = subscriptionDailyCost + oneTimeDailyCost
+  const catRangeStart = new Date(today.getTime() - 365 * 86400000)
+  const oneTimeYearlyCost = allAssets.filter(a => a.assetType === 'one_time').reduce(
+    (total, asset) => addAmounts(total, calculateAssetCostRange(asset, catRangeStart, today)),
+    0,
+  )
 
-  const assetCount = activeAssets.length
+  // 5. 计算订阅 KPI，金额按支付账户币种分组，避免跨币种直接相加。
+  const activeSubscriptions = allAssets.filter(a =>
+    a.assetType === 'subscription'
+    && a.subscriptionStatus === 'active'
+    && !a.subscriptionStoppedAt
+    && !a.tradedInAt,
+  )
+  const monthlyCostByCurrency: Record<string, number> = {}
+  const yearlyCostByCurrency: Record<string, number> = {}
+  const attentionDetail = { overdue: 0, sevenDays: 0, thirtyDays: 0 }
 
-  let subscriptionMonthlyTotal = 0
-  let subscriptionYearlyTotal = 0
-  for (const a of allAssets) {
-    if (a.assetType !== 'subscription' || !a.subscriptionPrice || !a.billingCycle)
-      continue
-    if (a.tradedInAt)
-      continue
-    if (!isSubscriptionActive(a, todayStr))
-      continue
-    const price = Number(a.subscriptionPrice)
-    if (a.billingCycle === 'monthly') {
-      subscriptionMonthlyTotal = addAmounts(subscriptionMonthlyTotal, price)
-      subscriptionYearlyTotal = addAmounts(subscriptionYearlyTotal, multiplyAmount(price, 12))
+  for (const subscription of activeSubscriptions) {
+    if (subscription.subscriptionPrice && subscription.billingCycle) {
+      const currencyCode = subscription.paymentAccountCurrencyCode || 'CNY'
+      monthlyCostByCurrency[currencyCode] = addAmounts(
+        monthlyCostByCurrency[currencyCode],
+        toMonthlySubscriptionCost(subscription.subscriptionPrice, subscription.billingCycle),
+      )
+      yearlyCostByCurrency[currencyCode] = addAmounts(
+        yearlyCostByCurrency[currencyCode],
+        toYearlySubscriptionCost(subscription.subscriptionPrice, subscription.billingCycle),
+      )
     }
-    else if (a.billingCycle === 'quarterly') {
-      subscriptionMonthlyTotal = addAmounts(subscriptionMonthlyTotal, divideAmount(price, 3))
-      subscriptionYearlyTotal = addAmounts(subscriptionYearlyTotal, multiplyAmount(price, 4))
-    }
-    else {
-      subscriptionMonthlyTotal = addAmounts(subscriptionMonthlyTotal, divideAmount(price, 12))
-      subscriptionYearlyTotal = addAmounts(subscriptionYearlyTotal, price)
-    }
+
+    const renewalWindow = getRenewalWindow(subscription.nextRenewalDate, todayStr)
+    if (renewalWindow === 'overdue')
+      attentionDetail.overdue += 1
+    else if (renewalWindow === 'seven_days')
+      attentionDetail.sevenDays += 1
+    else if (renewalWindow === 'thirty_days')
+      attentionDetail.thirtyDays += 1
   }
 
-  const activeAssetPurchaseTotal = sumAmounts(activeAssets.map(item => item.purchasePrice))
-
-  // 5. 分类花费与月度趋势（按资产模型拆分）
-  const catRangeStart = new Date(today.getTime() - 365 * 86400000)
+  // 6. 分类花费与月度趋势（按资产模型拆分）
   const statsByType: DashboardData['statsByType'] = {
     one_time: {
       categorySpending: buildCategorySpendingByType(allAssets, categoryMap, 'one_time', catRangeStart, today),
@@ -408,12 +401,20 @@ export async function getDashboardData(userId: string): Promise<DashboardData> {
   const expiring = expiringWithDays.map(({ daysLeft: _daysLeft, ...item }) => item)
 
   return {
-    kpi: {
-      dailyCostTotal: totalDailyCost,
-      subscriptionMonthlyTotal,
-      subscriptionYearlyTotal,
-      activeAssetCount: assetCount,
-      activeAssetPurchaseTotal,
+    kpiByType: {
+      one_time: {
+        activeCount: activeOneTimeAssets.length,
+        dailyCostTotal: oneTimeDailyCost,
+        purchaseTotal: sumAmounts(activeOneTimeAssets.map(item => item.purchasePrice)),
+        yearlyCostTotal: oneTimeYearlyCost,
+      },
+      subscription: {
+        activeCount: activeSubscriptions.length,
+        monthlyCostByCurrency,
+        yearlyCostByCurrency,
+        attentionCount: attentionDetail.overdue + attentionDetail.sevenDays + attentionDetail.thirtyDays,
+        attentionDetail,
+      },
     },
     statsByType,
     expiring,

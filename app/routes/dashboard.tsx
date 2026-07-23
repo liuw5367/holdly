@@ -6,13 +6,14 @@ import { data as loaderDataFn, redirect, useLoaderData, useNavigate, useSearchPa
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from 'recharts'
 import { toast } from 'sonner'
 import { MainPageHeader } from '~/components/page-header'
-import { Button } from '~/components/ui/button'
 import {
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
 } from '~/components/ui/chart'
+import { ToggleGroup, ToggleGroupItem } from '~/components/ui/toggle-group'
 import { getDashboardData } from '~/db/queries/dashboard'
+import { formatCurrencyGroups, getStatsModel } from '~/lib/dashboard-view'
 import { createSupabaseServerClient } from '~/lib/supabase.server'
 
 export async function loader({ request }: Route.LoaderArgs) {
@@ -37,9 +38,9 @@ export default function Dashboard() {
   const [searchParams, setSearchParams] = useSearchParams()
   const data = useLoaderData<typeof loader>()
   const [showWarning, setShowWarning] = useState(true)
-  const [statsModel, setStatsModel] = useState<'one_time' | 'subscription'>('one_time')
 
-  const { kpi, statsByType, expiring } = data
+  const statsModel = getStatsModel(searchParams)
+  const { kpiByType, statsByType, expiring } = data
   const categorySpending = statsByType[statsModel].categorySpending
   const monthlyTrend = statsByType[statsModel].monthlyTrend
 
@@ -53,39 +54,63 @@ export default function Dashboard() {
     setSearchParams(nextParams, { replace: true })
   }, [searchParams, setSearchParams])
 
-  const kpis = [
-    { label: '今日持有成本', value: `¥${kpi.dailyCostTotal.toFixed(2)}`, subtitle: '按当前持有状态折算' },
-    {
-      label: '每月订阅支出',
-      value: `¥${kpi.subscriptionMonthlyTotal.toFixed(2)}`,
-      subtitle: '活跃订阅月度折算',
-    },
-    { label: '当前持有数量', value: String(kpi.activeAssetCount), subtitle: '仍在持有的资产与订阅' },
-    { label: '持有资产原值', value: `¥${kpi.activeAssetPurchaseTotal.toLocaleString()}`, subtitle: '买断资产购入价总和' },
-  ]
+  const oneTimeKpi = kpiByType.one_time
+  const subscriptionKpi = kpiByType.subscription
+  const kpis: Array<{ label: string, value: string, subtitle: string }> = statsModel === 'one_time'
+    ? [
+        { label: '持有中买断', value: String(oneTimeKpi.activeCount), subtitle: '当前仍在持有的买断资产' },
+        { label: '今日持有成本', value: `¥${oneTimeKpi.dailyCostTotal.toFixed(2)}`, subtitle: '按当前持有天数折算' },
+        { label: '持有资产原值', value: `¥${oneTimeKpi.purchaseTotal.toLocaleString()}`, subtitle: '持有中买断资产购入价' },
+        { label: '近一年持有成本', value: `¥${oneTimeKpi.yearlyCostTotal.toLocaleString()}`, subtitle: '过去 365 天累计成本' },
+      ]
+    : [
+        { label: '活动订阅', value: String(subscriptionKpi.activeCount), subtitle: '当前仍在生效的订阅' },
+        { label: '月度预计', value: formatCurrencyGroups(subscriptionKpi.monthlyCostByCurrency), subtitle: '按订阅周期折算' },
+        { label: '年度预计', value: formatCurrencyGroups(subscriptionKpi.yearlyCostByCurrency), subtitle: '按订阅周期折算' },
+        {
+          label: '需关注',
+          value: String(subscriptionKpi.attentionCount),
+          subtitle: `${subscriptionKpi.attentionDetail.overdue} 逾期 · ${subscriptionKpi.attentionDetail.sevenDays} 七天内 · ${subscriptionKpi.attentionDetail.thirtyDays} 三十天内`,
+        },
+      ]
 
-  const renderStatsToggle = () => (
-    <div
-      className="inline-flex items-center rounded-md border p-0.5"
-      style={{ borderColor: 'var(--color-hairline)' }}
+  const statsToggle = (
+    <ToggleGroup
+      value={[statsModel]}
+      onValueChange={(values) => {
+        const nextModel = values[0]
+        if (nextModel !== 'one_time' && nextModel !== 'subscription')
+          return
+        const nextParams = new URLSearchParams(searchParams)
+        if (nextModel === 'subscription')
+          nextParams.set('model', 'subscription')
+        else
+          nextParams.delete('model')
+        setSearchParams(nextParams, { replace: true })
+      }}
+      className="rounded-md border border-[var(--color-hairline)] p-0.5"
+      variant="default"
+      size="sm"
+      spacing={0}
+      aria-label="统计类型"
     >
-      <Button
-        size="sm"
-        variant={statsModel === 'one_time' ? 'default' : 'ghost'}
-        className="h-6 px-2 text-xs"
-        onClick={() => setStatsModel('one_time')}
+      <ToggleGroupItem
+        value="one_time"
+        aria-label="查看买断统计"
+        className="h-6 min-w-0 px-2 text-xs"
+        style={{ borderRadius: 'var(--radius-md)' }}
       >
         买断
-      </Button>
-      <Button
-        size="sm"
-        variant={statsModel === 'subscription' ? 'default' : 'ghost'}
-        className="h-6 px-2 text-xs"
-        onClick={() => setStatsModel('subscription')}
+      </ToggleGroupItem>
+      <ToggleGroupItem
+        value="subscription"
+        aria-label="查看订阅统计"
+        className="h-6 min-w-0 px-2 text-xs"
+        style={{ borderRadius: 'var(--radius-md)' }}
       >
         订阅
-      </Button>
-    </div>
+      </ToggleGroupItem>
+    </ToggleGroup>
   )
 
   return (
@@ -118,7 +143,7 @@ export default function Dashboard() {
       )}
 
       {/* Page Header */}
-      <MainPageHeader title="统计总览" />
+      <MainPageHeader title="统计总览" trailing={statsToggle} />
 
       {/* KPI Grid */}
       <div className="mb-8 grid grid-cols-2 gap-3">
@@ -153,7 +178,6 @@ export default function Dashboard() {
           >
             近一年成本分布
           </h2>
-          {renderStatsToggle()}
         </div>
         <div
           className="rounded-xl px-4 py-4"
@@ -209,7 +233,6 @@ export default function Dashboard() {
           >
             近六个月成本趋势
           </h2>
-          {renderStatsToggle()}
         </div>
         <div
           className="rounded-xl px-4 py-4"

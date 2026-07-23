@@ -3,7 +3,6 @@ import {
   IconBox,
   IconFileText,
   IconLayoutDashboard,
-  IconRepeat,
   IconSettings,
 } from '@tabler/icons-react'
 import { data, NavLink, Outlet, redirect, useLocation } from 'react-router'
@@ -24,7 +23,6 @@ export async function loader({ request }: Route.LoaderArgs) {
 const navItems = [
   { to: '/dashboard', label: '统计', icon: IconLayoutDashboard },
   { to: '/assets', label: '资产', icon: IconBox },
-  { to: '/subscriptions', label: '订阅', icon: IconRepeat },
   { to: '/plans', label: '计划', icon: IconFileText },
   { to: '/settings', label: '设置', icon: IconSettings },
 ]
@@ -88,11 +86,7 @@ export default function AppShell() {
           paddingBottom: 'env(safe-area-inset-bottom, 0)',
         }}
       >
-        {navItems.slice(0, 2).map(item => (
-          <TabItem key={item.to} {...item} locationPath={location.pathname} />
-        ))}
-
-        {navItems.slice(2).map(item => (
+        {navItems.map(item => (
           <TabItem key={item.to} {...item} locationPath={location.pathname} />
         ))}
       </nav>
