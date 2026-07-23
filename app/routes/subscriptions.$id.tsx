@@ -1,6 +1,5 @@
 import type { Route } from './+types/subscriptions.$id'
 import { IconBell, IconCheck, IconLoader2, IconPencil, IconPlayerPlay, IconPlayerStop, IconRepeat, IconTrash, IconX } from '@tabler/icons-react'
-import { addMonths, addYears, format } from 'date-fns'
 import { useEffect, useMemo, useState } from 'react'
 import { data, redirect, useActionData, useLoaderData, useNavigate, useNavigation, useSearchParams, useSubmit } from 'react-router'
 import { toast } from 'sonner'
@@ -46,7 +45,9 @@ import {
 } from '~/db/queries/assets'
 import { getSettingsProfileByUserId } from '~/db/queries/settings'
 import { calculateAssetDurationDays, formatDaysWithYears, formatInteger, formatNumber, getBillingCycleLabel } from '~/lib/asset-meta'
+import { subscriptionRenewalSchema } from '~/lib/asset.schema'
 import { calcSubscriptionDailyCost } from '~/lib/cost'
+import { advanceRenewalDate, getRenewalPeriodEnd } from '~/lib/subscription-renewal'
 import { createSupabaseServerClient } from '~/lib/supabase.server'
 
 export async function loader({ request, params }: Route.LoaderArgs) {
@@ -147,13 +148,15 @@ export async function action({ request, params }: Route.ActionArgs) {
     if (asset.subscriptionStatus === 'cancelled')
       return data({ ok: false, error: '已取消的订阅无法续费' }, { headers })
 
-    const price = String(formData.get('price') || '')
-    const notes = String(formData.get('notes') || '').trim()
-    const updateExpectedPrice = formData.get('updateExpectedPrice') === 'true'
+    const parsed = subscriptionRenewalSchema.safeParse({
+      price: formData.get('price'),
+      notes: formData.get('notes') ?? undefined,
+      updateExpectedPrice: formData.get('updateExpectedPrice') === 'true',
+    })
+    if (!parsed.success)
+      return data({ ok: false, error: parsed.error.issues[0]?.message || '续费信息无效' }, { status: 400, headers })
 
-    if (price === '' || Number(price) < 0)
-      return data({ ok: false, error: '金额不能小于 0' }, { headers })
-    const result = await createRenewal(params.id, user.id, { price, notes: notes || undefined, updateExpectedPrice })
+    const result = await createRenewal(params.id, user.id, parsed.data)
     if (result.status === 'duplicate')
       return data({ ok: false, error: '这个周期已经确认过续费' }, { status: 409, headers })
     if (result.status === 'invalid')
@@ -214,15 +217,11 @@ export default function SubscriptionDetailPage() {
   }, [actionData])
 
   const renewStartDate = nextRenewalDate
+  const nextRenewalPreview = renewStartDate && asset.billingCycle
+    ? advanceRenewalDate(renewStartDate, asset.billingCycle)
+    : null
   const periodEndDate = renewStartDate && asset.billingCycle
-    ? (() => {
-        const d = new Date(`${renewStartDate}T00:00:00`)
-        if (asset.billingCycle === 'monthly')
-          return format(addMonths(d, 1), 'yyyy-MM-dd')
-        if (asset.billingCycle === 'quarterly')
-          return format(addMonths(d, 3), 'yyyy-MM-dd')
-        return format(addYears(d, 1), 'yyyy-MM-dd')
-      })()
+    ? getRenewalPeriodEnd(renewStartDate, asset.billingCycle)
     : null
 
   function onCancel() {
@@ -538,10 +537,10 @@ export default function SubscriptionDetailPage() {
                 </span>
               </Field>
             )}
-            {periodEndDate && (
+            {nextRenewalPreview && (
               <Field orientation="horizontal" className="justify-between">
                 <FieldLabel>下次续费日期</FieldLabel>
-                <span className="text-sm font-medium" style={{ color: 'var(--color-primary)' }}>{periodEndDate}</span>
+                <span className="text-sm font-medium" style={{ color: 'var(--color-primary)' }}>{nextRenewalPreview}</span>
               </Field>
             )}
             <Field orientation="horizontal" className="justify-between">
@@ -561,7 +560,7 @@ export default function SubscriptionDetailPage() {
               <IconX size={14} data-icon="inline-start" />
               取消
             </Button>
-            <Button className="h-10" variant="default" onClick={onRenew} disabled={isSubmitting || renewPrice === '' || Number(renewPrice) < 0}>
+            <Button className="h-10" variant="default" onClick={onRenew} disabled={isSubmitting || !Number.isFinite(Number(renewPrice)) || Number(renewPrice) <= 0}>
               {isSubmitting && <IconLoader2 size={14} className="animate-spin" />}
               {!isSubmitting && <IconCheck size={14} data-icon="inline-start" />}
               确认续费

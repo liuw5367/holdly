@@ -27,6 +27,11 @@ describe('信用卡资料', () => {
     expect(creditCardSchema.safeParse({ ...validCard, creditLimit: '-1' }).success).toBe(false)
   })
 
+  it('拒绝在备注中保存敏感凭证', () => {
+    expect(creditCardSchema.safeParse({ ...validCard, notes: '卡号 6225 8888 6666 6821' }).success).toBe(false)
+    expect(creditCardSchema.safeParse({ ...validCard, notes: 'CVV 123' }).success).toBe(false)
+  })
+
   it('将短月份的 31 日回退到月末', () => {
     expect(clampBillingDay(2026, 1, 31).getDate()).toBe(28)
     expect(getNextCardDates({ today: new Date(2026, 1, 20), statementDay: 31, repaymentRule: 'days_after_statement', repaymentDaysAfterStatement: 5 })).toEqual({

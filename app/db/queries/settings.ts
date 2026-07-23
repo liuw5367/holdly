@@ -311,36 +311,54 @@ export interface CreditCardAccountInput {
 }
 
 export async function createSettingsCreditCard(userId: string, input: CreditCardAccountInput) {
-  const [row] = await db.insert(paymentAccounts).values({
-    userId,
-    accountKind: 'credit_card',
-    ...input,
-    lastFour: input.lastFour || null,
-    notes: input.notes || null,
-    repaymentDay: input.repaymentRule === 'fixed_day' ? input.repaymentDay : null,
-    repaymentDaysAfterStatement: input.repaymentRule === 'days_after_statement' ? input.repaymentDaysAfterStatement : null,
-    creditLimit: input.creditLimit || null,
-  }).returning({ id: paymentAccounts.id })
-  return row.id
+  return db.transaction(async (tx) => {
+    const [paymentType] = await tx.select({ id: paymentTypes.id })
+      .from(paymentTypes)
+      .where(and(eq(paymentTypes.id, input.paymentTypeId), eq(paymentTypes.userId, userId), isNull(paymentTypes.deletedAt)))
+      .limit(1)
+    if (!paymentType)
+      return null
+
+    const [row] = await tx.insert(paymentAccounts).values({
+      userId,
+      accountKind: 'credit_card',
+      ...input,
+      lastFour: input.lastFour || null,
+      notes: input.notes || null,
+      repaymentDay: input.repaymentRule === 'fixed_day' ? input.repaymentDay : null,
+      repaymentDaysAfterStatement: input.repaymentRule === 'days_after_statement' ? input.repaymentDaysAfterStatement : null,
+      creditLimit: input.creditLimit || null,
+    }).returning({ id: paymentAccounts.id })
+    return row?.id ?? null
+  })
 }
 
 export async function updateSettingsCreditCard(userId: string, id: string, input: CreditCardAccountInput) {
-  const [row] = await db.update(paymentAccounts).set({
-    ...input,
-    lastFour: input.lastFour || null,
-    notes: input.notes || null,
-    repaymentDay: input.repaymentRule === 'fixed_day' ? input.repaymentDay : null,
-    repaymentDaysAfterStatement: input.repaymentRule === 'days_after_statement' ? input.repaymentDaysAfterStatement : null,
-    creditLimit: input.creditLimit || null,
-    updatedAt: new Date(),
-  }).where(and(eq(paymentAccounts.id, id), eq(paymentAccounts.userId, userId), eq(paymentAccounts.accountKind, 'credit_card'), isNull(paymentAccounts.deletedAt))).returning({ id: paymentAccounts.id })
-  return row ?? null
+  return db.transaction(async (tx) => {
+    const [paymentType] = await tx.select({ id: paymentTypes.id })
+      .from(paymentTypes)
+      .where(and(eq(paymentTypes.id, input.paymentTypeId), eq(paymentTypes.userId, userId), isNull(paymentTypes.deletedAt)))
+      .limit(1)
+    if (!paymentType)
+      return null
+
+    const [row] = await tx.update(paymentAccounts).set({
+      ...input,
+      lastFour: input.lastFour || null,
+      notes: input.notes || null,
+      repaymentDay: input.repaymentRule === 'fixed_day' ? input.repaymentDay : null,
+      repaymentDaysAfterStatement: input.repaymentRule === 'days_after_statement' ? input.repaymentDaysAfterStatement : null,
+      creditLimit: input.creditLimit || null,
+      updatedAt: new Date(),
+    }).where(and(eq(paymentAccounts.id, id), eq(paymentAccounts.userId, userId), eq(paymentAccounts.accountKind, 'credit_card'), isNull(paymentAccounts.deletedAt))).returning({ id: paymentAccounts.id })
+    return row ?? null
+  })
 }
 
-export async function setPaymentAccountActive(userId: string, id: string, isActive: boolean) {
+export async function setCreditCardActive(userId: string, id: string, isActive: boolean) {
   const [row] = await db.update(paymentAccounts)
     .set({ isActive, updatedAt: new Date() })
-    .where(and(eq(paymentAccounts.id, id), eq(paymentAccounts.userId, userId), isNull(paymentAccounts.deletedAt)))
+    .where(and(eq(paymentAccounts.id, id), eq(paymentAccounts.userId, userId), eq(paymentAccounts.accountKind, 'credit_card'), isNull(paymentAccounts.deletedAt)))
     .returning({ id: paymentAccounts.id })
   return row ?? null
 }

@@ -73,3 +73,12 @@ export const assetValueRecordSchema = z.object({
   source: z.enum(['manual', 'market', 'professional', 'baseline']),
   notes: z.string().trim().max(500, '估值备注最多 500 个字符').optional(),
 })
+
+export const subscriptionRenewalSchema = z.object({
+  price: z.string().trim().refine(
+    value => Number.isFinite(Number(value)) && Number(value) > 0,
+    '续费金额必须大于 0',
+  ),
+  notes: z.string().trim().max(500, '续费备注最多 500 个字符').optional(),
+  updateExpectedPrice: z.boolean(),
+})

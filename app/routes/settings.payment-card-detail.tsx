@@ -8,7 +8,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Badge } from '~/components/ui/badge'
 import { Button } from '~/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '~/components/ui/card'
-import { getSettingsPaymentAccountById, getSubscriptionsByPaymentAccount, setPaymentAccountActive } from '~/db/queries/settings'
+import { getSettingsPaymentAccountById, getSubscriptionsByPaymentAccount, setCreditCardActive } from '~/db/queries/settings'
 import { formatInteger, getBillingCycleLabel } from '~/lib/asset-meta'
 import { getNextCardDates } from '~/lib/payment-account.schema'
 import { createSupabaseServerClient } from '~/lib/supabase.server'
@@ -43,7 +43,7 @@ export async function action({ request, params }: Route.ActionArgs) {
     throw redirect('/login', { headers })
   const formData = await request.formData()
   const isActive = formData.get('isActive') === 'true'
-  const updated = await setPaymentAccountActive(user.id, params.id, isActive)
+  const updated = await setCreditCardActive(user.id, params.id, isActive)
   if (!updated)
     throw new Response('Not Found', { status: 404, headers })
   return data({ ok: true }, { headers })
