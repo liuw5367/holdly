@@ -300,6 +300,7 @@ export async function getSettingsPaymentAccountsByUserId(userId: string) {
       accountKind: paymentAccounts.accountKind,
       bankName: paymentAccounts.bankName,
       lastFour: paymentAccounts.lastFour,
+      creditLimit: paymentAccounts.creditLimit,
       currencyCode: paymentAccounts.currencyCode,
       isActive: paymentAccounts.isActive,
       statementDay: paymentAccounts.statementDay,

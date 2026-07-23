@@ -21,6 +21,7 @@ import {
   getSettingsPaymentTypesByUserId,
   softDeleteSettingsPaymentAccount,
 } from '~/db/queries/settings'
+import { formatInteger } from '~/lib/asset-meta'
 import { getNextCardDates } from '~/lib/payment-account.schema'
 import { createSupabaseServerClient } from '~/lib/supabase.server'
 
@@ -166,7 +167,7 @@ export default function PaymentAccountsPage() {
                         </span>
                         <span className="mt-1 block text-xs text-muted-foreground">
                           {isCreditCard
-                            ? `${account.lastFour ? `尾号 ${account.lastFour}` : '未填写尾号'} · ${account.currencyCode}`
+                            ? `${account.lastFour ? `尾号 ${account.lastFour}` : '未填写尾号'} · ${account.currencyCode}${account.creditLimit ? ` · 额度 ${formatInteger(account.creditLimit)}` : ''}`
                             : typeNameMap.get(account.paymentTypeId) || '未分类'}
                         </span>
                         {isCreditCard && (
