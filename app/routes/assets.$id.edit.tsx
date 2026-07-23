@@ -88,7 +88,7 @@ export async function action({ request, params }: Route.ActionArgs) {
     return data({ errors: parsed.error.flatten().fieldErrors }, { headers })
 
   const validated = parsed.data
-  await updateAsset(params.id, user.id, {
+  const updated = await updateAsset(params.id, user.id, {
     name: validated.name,
     emoji: validated.emoji,
     categoryId: validated.categoryId,
@@ -106,6 +106,9 @@ export async function action({ request, params }: Route.ActionArgs) {
     nextRenewalDate: validated.nextRenewalDate,
     subscriptionStartDate: validated.subscriptionStartDate,
   })
+
+  if (!updated)
+    return data({ errors: { paymentAccountId: ['支付账户不可用，请重新选择'] } }, { status: 400, headers })
 
   return redirect(getAssetDetailPath({ id: params.id, assetType: validated.assetType }), { headers })
 }

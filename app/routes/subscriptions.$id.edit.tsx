@@ -74,21 +74,24 @@ export async function action({ request, params }: Route.ActionArgs) {
   if (!parsed.success)
     return { errors: parsed.error.flatten().fieldErrors }
 
-  const data = parsed.data
-  await updateAsset(params.id, user.id, {
-    name: data.name,
-    emoji: data.emoji,
-    categoryId: data.categoryId,
-    assetType: data.assetType,
-    paymentTypeId: data.paymentTypeId,
-    paymentAccountId: data.paymentAccountId,
-    notes: data.notes,
-    tagIds: data.tagIds,
-    purchaseDate: data.purchaseDate,
-    subscriptionPrice: data.subscriptionPrice,
-    billingCycle: data.billingCycle,
-    subscriptionStartDate: data.subscriptionStartDate,
+  const validated = parsed.data
+  const updated = await updateAsset(params.id, user.id, {
+    name: validated.name,
+    emoji: validated.emoji,
+    categoryId: validated.categoryId,
+    assetType: validated.assetType,
+    paymentTypeId: validated.paymentTypeId,
+    paymentAccountId: validated.paymentAccountId,
+    notes: validated.notes,
+    tagIds: validated.tagIds,
+    purchaseDate: validated.purchaseDate,
+    subscriptionPrice: validated.subscriptionPrice,
+    billingCycle: validated.billingCycle,
+    subscriptionStartDate: validated.subscriptionStartDate,
   })
+
+  if (!updated)
+    return data({ errors: { paymentAccountId: ['支付账户不可用，请重新选择'] } }, { status: 400, headers })
 
   return redirect(getAssetDetailPath({ id: params.id, assetType: 'subscription' }), { headers })
 }

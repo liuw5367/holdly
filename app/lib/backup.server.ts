@@ -22,6 +22,7 @@ export async function generateExportXlsx(userId: string): Promise<Uint8Array> {
       purchasePrice: assets.purchasePrice,
       currentValue: assets.currentValue,
       purchaseDate: assets.purchaseDate,
+      purchaseReceipt: assets.purchaseReceipt,
       subscriptionPrice: assets.subscriptionPrice,
       billingCycle: assets.billingCycle,
       nextRenewalDate: assets.nextRenewalDate,
@@ -62,6 +63,7 @@ export async function generateExportXlsx(userId: string): Promise<Uint8Array> {
     购入价: a.purchasePrice ? Number(a.purchasePrice) : '',
     当前估价: a.currentValue ? Number(a.currentValue) : '',
     购入日期: a.purchaseDate || '',
+    购买凭证: a.purchaseReceipt || '',
     订阅价: a.subscriptionPrice ? Number(a.subscriptionPrice) : '',
     计费周期: a.billingCycle ? ({ monthly: '月付', quarterly: '季付', yearly: '年付' })[a.billingCycle] : '',
     下次续费日: a.nextRenewalDate || '',
@@ -87,6 +89,7 @@ export async function generateExportXlsx(userId: string): Promise<Uint8Array> {
     { wch: 10 },
     { wch: 10 },
     { wch: 12 },
+    { wch: 30 },
     { wch: 10 },
     { wch: 8 },
     { wch: 12 },
@@ -324,6 +327,7 @@ async function getAssetData(userId: string) {
       purchasePrice: assets.purchasePrice,
       currentValue: assets.currentValue,
       purchaseDate: assets.purchaseDate,
+      purchaseReceipt: assets.purchaseReceipt,
       subscriptionPrice: assets.subscriptionPrice,
       billingCycle: assets.billingCycle,
       nextRenewalDate: assets.nextRenewalDate,
@@ -341,7 +345,7 @@ async function getAssetData(userId: string) {
     })
     .from(assets)
     .leftJoin(categories, eq(assets.categoryId, categories.id))
-    .leftJoin(paymentTypes, eq(assets.categoryId, paymentTypes.id))
+    .leftJoin(paymentTypes, eq(assets.paymentTypeId, paymentTypes.id))
     .leftJoin(paymentAccounts, eq(assets.paymentAccountId, paymentAccounts.id))
     .where(and(eq(assets.userId, userId), isNull(assets.deletedAt)))
     .orderBy(assets.createdAt)
@@ -417,7 +421,7 @@ export async function generateBackupHtml(userId: string): Promise<string> {
 
   // ===== 资产列表 =====
   html += '<h2 class="backup-section">资产列表</h2><table class="backup-table"><thead><tr>'
-  const assetHeaders = ['名称', 'Emoji', '类型', '分类', '标签', '购入价', '当前估价', '购入日期', '订阅价', '计费周期', '下次续费日', '订阅开始日', '支付类型', '支付账户', '备注', '状态', '卖出日期', '卖出价格', '旧资产', '创建时间', '更新时间']
+  const assetHeaders = ['名称', 'Emoji', '类型', '分类', '标签', '购入价', '当前估价', '购入日期', '购买凭证', '订阅价', '计费周期', '下次续费日', '订阅开始日', '支付类型', '支付账户', '备注', '状态', '卖出日期', '卖出价格', '旧资产', '创建时间', '更新时间']
   for (const h of assetHeaders)
     html += `<th>${esc(h)}</th>`
   html += '</tr></thead><tbody>'
@@ -432,6 +436,7 @@ export async function generateBackupHtml(userId: string): Promise<string> {
     html += `<td class="num">${a.purchasePrice ? esc(a.purchasePrice) : ''}</td>`
     html += `<td class="num">${a.currentValue ? esc(a.currentValue) : ''}</td>`
     html += `<td>${esc(a.purchaseDate || '')}</td>`
+    html += `<td>${esc(a.purchaseReceipt || '')}</td>`
     html += `<td class="num">${a.subscriptionPrice ? esc(a.subscriptionPrice) : ''}</td>`
     html += `<td>${a.billingCycle ? ({ monthly: '月付', quarterly: '季付', yearly: '年付' })[a.billingCycle] : ''}</td>`
     html += `<td>${esc(a.nextRenewalDate || '')}</td>`

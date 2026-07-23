@@ -99,6 +99,9 @@ export async function action({ request }: Route.ActionArgs) {
     subscriptionStartDate: validated.subscriptionStartDate,
   })
 
+  if (!assetId)
+    return data({ errors: { paymentAccountId: ['支付账户不可用，请重新选择'] } }, { status: 400, headers })
+
   return redirect(getAssetDetailPath({ id: assetId, assetType: validated.assetType }), { headers })
 }
 

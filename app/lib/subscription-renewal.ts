@@ -1,5 +1,5 @@
 import currency from 'currency.js'
-import { addMonths, addYears, format, subDays } from 'date-fns'
+import { addMonths, addYears, format, isAfter, subDays } from 'date-fns'
 
 export type BillingCycle = 'monthly' | 'quarterly' | 'yearly'
 
@@ -10,6 +10,15 @@ export function advanceRenewalDate(startDate: string, cycle: BillingCycle): stri
     : cycle === 'quarterly'
       ? addMonths(base, 3)
       : addYears(base, 1)
+  return format(next, 'yyyy-MM-dd')
+}
+
+export function getInitialRenewalDate(startDate: string, cycle: BillingCycle, today = format(new Date(), 'yyyy-MM-dd')): string {
+  let next = new Date(`${startDate}T00:00:00`)
+  const todayDate = new Date(`${today}T00:00:00`)
+  do {
+    next = new Date(`${advanceRenewalDate(format(next, 'yyyy-MM-dd'), cycle)}T00:00:00`)
+  } while (!isAfter(next, todayDate))
   return format(next, 'yyyy-MM-dd')
 }
 

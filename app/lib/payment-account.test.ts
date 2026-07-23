@@ -30,6 +30,12 @@ describe('信用卡资料', () => {
   it('拒绝在备注中保存敏感凭证', () => {
     expect(creditCardSchema.safeParse({ ...validCard, notes: '卡号 6225 8888 6666 6821' }).success).toBe(false)
     expect(creditCardSchema.safeParse({ ...validCard, notes: 'CVV 123' }).success).toBe(false)
+    expect(creditCardSchema.safeParse({ ...validCard, notes: '6225  8888.6666-6821' }).success).toBe(false)
+  })
+
+  it('拒绝在名称和银行字段中绕过敏感凭证限制', () => {
+    expect(creditCardSchema.safeParse({ ...validCard, name: '6225 8888 6666 6821' }).success).toBe(false)
+    expect(creditCardSchema.safeParse({ ...validCard, bankName: 'CVV 123' }).success).toBe(false)
   })
 
   it('将短月份的 31 日回退到月末', () => {

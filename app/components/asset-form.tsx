@@ -1,6 +1,5 @@
 import type { AssetFormValues } from '~/lib/asset.schema'
 import { IconLoader2 } from '@tabler/icons-react'
-import { addMonths, addYears, format, isAfter } from 'date-fns'
 import EmojiPicker from 'emoji-picker-react'
 import { useMemo, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
@@ -19,6 +18,7 @@ import { MultiSelect } from '~/components/ui/multi-select'
 import { Popover, PopoverContent, PopoverTrigger } from '~/components/ui/popover'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '~/components/ui/select'
 import { Textarea } from '~/components/ui/textarea'
+import { getInitialRenewalDate } from '~/lib/subscription-renewal'
 
 interface Category {
   id: string
@@ -225,19 +225,8 @@ export function AssetForm({
   const nextRenewalPreview = useMemo(() => {
     if (!isSubscription || !selectedPurchaseDate || !selectedBillingCycle)
       return null
-    const start = new Date(`${selectedPurchaseDate}T00:00:00`)
-    const now = new Date()
-    let next = new Date(start)
-    while (!isAfter(next, now)) {
-      if (selectedBillingCycle === 'monthly')
-        next = addMonths(next, 1)
-      else if (selectedBillingCycle === 'quarterly')
-        next = addMonths(next, 3)
-      else
-        next = addYears(next, 1)
-    }
-    return format(next, 'yyyy-MM-dd')
-  }, [isSubscription, selectedPurchaseDate, selectedBillingCycle])
+    return getInitialRenewalDate(selectedPurchaseDate, selectedBillingCycle, today)
+  }, [isSubscription, selectedPurchaseDate, selectedBillingCycle, today])
 
   return (
     <div>

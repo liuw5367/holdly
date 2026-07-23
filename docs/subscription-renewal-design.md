@@ -12,7 +12,7 @@
 
 - 用户可以记录"已续费"并推进下次续费日期
 - 不改变持有天数、每日成本和订阅花费的计算口径
-- 金额可编辑，应对涨价/优惠，但只存历史，不自动更新 `subscriptionPrice`
+- 金额可编辑，应对涨价/优惠；用户可选择是否同步更新后续预计价格 `subscriptionPrice`
 - 同步推进 `assets.nextRenewalDate`，供详情页、Dashboard 和提醒系统复用
 
 ## 3. 交互设计
@@ -128,9 +128,9 @@ VALUES (?, ?, ?, ?)
 
 ### 4.4 续费日期计算
 
-- 详情页优先以最近续费记录的 `startDate` 为基准，按月付/季付/年付周期向后推算
-- 没有续费记录时回退到 `subscriptionStartDate || purchaseDate`
-- `createRenewal` 同步更新持久化的 `nextRenewalDate`，Dashboard 和提醒系统无需重复读取续费历史
+- 新建订阅时，服务端根据 `subscriptionStartDate || purchaseDate` 和计费周期生成首个未来续费日
+- 详情页、Dashboard 和提醒系统统一读取持久化的 `assets.nextRenewalDate`
+- 每次确认只从事务内读取并锁定的 `nextRenewalDate` 推进一个周期，不根据当前日期自动跳过逾期周期
 
 ### 4.5 Action 变更
 
@@ -139,12 +139,15 @@ VALUES (?, ?, ?, ?)
 | 参数 | 来源 |
 |---|---|
 | `price` | Dialog 表单 |
-| `startDate` | 当前 `nextRenewalDate`（自动计算，只读传给 Dialog）|
+| `expectedStartDate` | Dialog 打开时的 `nextRenewalDate`，仅作为并发校验令牌 |
+| `notes` | 可选说明 |
+| `updateExpectedPrice` | 是否同步更新后续预计价格 |
 
 Action 处理：
-1. 验证 `price > 0`
-2. 调用 `createRenewal` 写入记录并推进 `nextRenewalDate`
-3. 返回 `{ ok: true }`，路由提交完成后重新验证 loader 数据
+1. 验证表单字段并锁定当前订阅资产行
+2. 核对 `expectedStartDate` 与服务端当前 `nextRenewalDate`；重复请求返回明确提示
+3. 写入续费记录并推进 `nextRenewalDate`
+4. 返回 `{ ok: true }`，路由提交完成后重新验证 loader 数据
 
 ### 4.6 数据流
 
@@ -156,8 +159,7 @@ Action 处理：
   → Action 创建 subscription_renewals 记录并更新 assets.next_renewal_date
   → 返回 { ok: true }
   → Loader 重新加载（含新续费记录）
-  → calcNextRenewalDate 基于新记录计算
-  → 下次续费日期自动更新
+  → 页面读取持久化后的 nextRenewalDate
   → 最近续费行出现
 ```
 

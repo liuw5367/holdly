@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { subscriptionRenewalSchema } from './asset.schema'
-import { advanceRenewalDate, getRenewalPeriodEnd, getRenewalWindow, toMonthlySubscriptionCost, toYearlySubscriptionCost } from './subscription-renewal'
+import { advanceRenewalDate, getInitialRenewalDate, getRenewalPeriodEnd, getRenewalWindow, toMonthlySubscriptionCost, toYearlySubscriptionCost } from './subscription-renewal'
 
 describe('订阅续费规则', () => {
   it('每次只推进一个周期，即使日期已逾期', () => {
@@ -9,15 +9,21 @@ describe('订阅续费规则', () => {
     expect(advanceRenewalDate('2024-01-15', 'yearly')).toBe('2025-01-15')
   })
 
+  it('根据订阅开始日生成首次续费日期', () => {
+    expect(getInitialRenewalDate('2026-07-15', 'monthly', '2026-07-23')).toBe('2026-08-15')
+    expect(getInitialRenewalDate('2026-07-15', 'quarterly', '2026-07-23')).toBe('2026-10-15')
+    expect(getInitialRenewalDate('2024-01-15', 'monthly', '2026-07-23')).toBe('2026-08-15')
+  })
+
   it('周期结束日是下次续费日前一天', () => {
     expect(getRenewalPeriodEnd('2026-05-15', 'monthly')).toBe('2026-06-14')
     expect(getRenewalPeriodEnd('2026-01-01', 'quarterly')).toBe('2026-03-31')
   })
 
   it('仅接受有限且大于零的续费金额', () => {
-    expect(subscriptionRenewalSchema.safeParse({ price: '0', updateExpectedPrice: true }).success).toBe(false)
-    expect(subscriptionRenewalSchema.safeParse({ price: 'Infinity', updateExpectedPrice: true }).success).toBe(false)
-    expect(subscriptionRenewalSchema.safeParse({ price: '8.88', notes: '优惠', updateExpectedPrice: true }).success).toBe(true)
+    expect(subscriptionRenewalSchema.safeParse({ price: '0', expectedStartDate: '2026-07-15', updateExpectedPrice: true }).success).toBe(false)
+    expect(subscriptionRenewalSchema.safeParse({ price: 'Infinity', expectedStartDate: '2026-07-15', updateExpectedPrice: true }).success).toBe(false)
+    expect(subscriptionRenewalSchema.safeParse({ price: '8.88', expectedStartDate: '2026-07-15', notes: '优惠', updateExpectedPrice: true }).success).toBe(true)
   })
 
   it('使用精确金额归一化月度和年度成本', () => {

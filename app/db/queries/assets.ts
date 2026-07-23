@@ -96,13 +96,22 @@ export async function createAssetValueRecord(assetId: string, userId: string, in
     const [asset] = await tx.select({ id: assets.id })
       .from(assets)
       .where(and(eq(assets.id, assetId), eq(assets.userId, userId), eq(assets.assetType, 'one_time'), isNull(assets.deletedAt)))
-      .limit(1)
+      .for('update')
     if (!asset)
       return null
 
     const [record] = await tx.insert(assetValueRecords).values({ userId, assetId, ...input }).returning()
+    const [latest] = await tx.select({ value: assetValueRecords.value })
+      .from(assetValueRecords)
+      .where(and(
+        eq(assetValueRecords.assetId, assetId),
+        eq(assetValueRecords.userId, userId),
+        isNull(assetValueRecords.deletedAt),
+      ))
+      .orderBy(desc(assetValueRecords.valuedOn), desc(assetValueRecords.createdAt))
+      .limit(1)
     await tx.update(assets)
-      .set({ currentValue: input.value, updatedAt: new Date() })
+      .set({ currentValue: latest?.value ?? null, updatedAt: new Date() })
       .where(and(eq(assets.id, assetId), eq(assets.userId, userId)))
     return record
   })
@@ -110,6 +119,13 @@ export async function createAssetValueRecord(assetId: string, userId: string, in
 
 export async function softDeleteAssetValueRecord(recordId: string, assetId: string, userId: string) {
   return db.transaction(async (tx) => {
+    const [asset] = await tx.select({ id: assets.id })
+      .from(assets)
+      .where(and(eq(assets.id, assetId), eq(assets.userId, userId), eq(assets.assetType, 'one_time'), isNull(assets.deletedAt)))
+      .for('update')
+    if (!asset)
+      return false
+
     const [record] = await tx.select()
       .from(assetValueRecords)
       .where(and(
@@ -175,6 +191,23 @@ export interface CreateAssetInput {
 export async function createAsset(input: CreateAssetInput) {
   const { tagIds, ...data } = input
   return db.transaction(async (tx) => {
+    if (data.paymentAccountId) {
+      const [account] = await tx.select({
+        id: paymentAccounts.id,
+        paymentTypeId: paymentAccounts.paymentTypeId,
+      })
+        .from(paymentAccounts)
+        .where(and(
+          eq(paymentAccounts.id, data.paymentAccountId),
+          eq(paymentAccounts.userId, data.userId),
+          eq(paymentAccounts.isActive, true),
+          isNull(paymentAccounts.deletedAt),
+        ))
+        .for('update')
+      if (!account || (data.paymentTypeId && account.paymentTypeId !== data.paymentTypeId))
+        return null
+    }
+
     const [asset] = await tx.insert(assets).values({
       userId: data.userId,
       name: data.name,
@@ -235,9 +268,32 @@ export interface UpdateAssetInput {
 export async function updateAsset(id: string, userId: string, input: UpdateAssetInput) {
   const { tagIds, ...data } = input
   return db.transaction(async (tx) => {
-    const [existing] = await tx.select().from(assets).where(and(eq(assets.id, id), eq(assets.userId, userId), isNull(assets.deletedAt))).limit(1)
+    const [existing] = await tx.select().from(assets).where(and(eq(assets.id, id), eq(assets.userId, userId), isNull(assets.deletedAt))).for('update')
     if (!existing)
       return false
+
+    if (data.paymentAccountId) {
+      const [account] = await tx.select({
+        id: paymentAccounts.id,
+        paymentTypeId: paymentAccounts.paymentTypeId,
+        isActive: paymentAccounts.isActive,
+      })
+        .from(paymentAccounts)
+        .where(and(
+          eq(paymentAccounts.id, data.paymentAccountId),
+          eq(paymentAccounts.userId, userId),
+          isNull(paymentAccounts.deletedAt),
+        ))
+        .for('update')
+      const keepsExistingInactiveAccount = account?.id === existing.paymentAccountId
+      if (
+        !account
+        || (!account.isActive && !keepsExistingInactiveAccount)
+        || (data.paymentTypeId && account.paymentTypeId !== data.paymentTypeId)
+      ) {
+        return false
+      }
+    }
 
     await tx.update(assets).set({
       name: data.name,
@@ -250,7 +306,9 @@ export async function updateAsset(id: string, userId: string, input: UpdateAsset
       purchaseReceipt: data.purchaseReceipt ?? null,
       subscriptionPrice: data.subscriptionPrice ?? null,
       billingCycle: data.billingCycle ?? null,
-      nextRenewalDate: data.nextRenewalDate ?? null,
+      nextRenewalDate: data.assetType === 'subscription'
+        ? data.nextRenewalDate ?? existing.nextRenewalDate
+        : null,
       subscriptionStartDate: data.subscriptionStartDate ?? null,
       paymentTypeId: data.paymentTypeId ?? null,
       paymentAccountId: data.paymentAccountId ?? null,
@@ -402,6 +460,23 @@ export async function tradeInAsset(input: TradeInAssetInput) {
       .then(rows => rows[0])
     if (!category)
       throw new Error('分类不存在')
+
+    if (input.paymentAccountId) {
+      const [account] = await tx.select({
+        id: paymentAccounts.id,
+        paymentTypeId: paymentAccounts.paymentTypeId,
+      })
+        .from(paymentAccounts)
+        .where(and(
+          eq(paymentAccounts.id, input.paymentAccountId),
+          eq(paymentAccounts.userId, input.userId),
+          eq(paymentAccounts.isActive, true),
+          isNull(paymentAccounts.deletedAt),
+        ))
+        .for('update')
+      if (!account || (input.paymentTypeId && account.paymentTypeId !== input.paymentTypeId))
+        throw new Error('支付账户不可用，请重新选择')
+    }
 
     const tagName = '以旧换新购买'
     let tradeInTag = await tx
@@ -737,33 +812,40 @@ export async function getSubscriptionRenewals(assetId: string) {
 export async function createRenewal(
   assetId: string,
   userId: string,
-  input: { price: string, notes?: string, updateExpectedPrice: boolean },
+  input: { price: string, expectedStartDate: string, notes?: string, updateExpectedPrice: boolean },
 ) {
   return db.transaction(async (tx) => {
     const [asset] = await tx.select()
       .from(assets)
       .where(and(eq(assets.id, assetId), eq(assets.userId, userId), eq(assets.assetType, 'subscription'), isNull(assets.deletedAt)))
-      .limit(1)
+      .for('update')
     if (!asset || !asset.billingCycle || !asset.nextRenewalDate || asset.subscriptionStatus !== 'active')
       return { status: 'invalid' as const }
 
-    const startDate = asset.nextRenewalDate
-    const confirmationKey = `${assetId}:${startDate}`
-    const [duplicate] = await tx.select({ id: subscriptionRenewals.id })
-      .from(subscriptionRenewals)
-      .where(and(eq(subscriptionRenewals.confirmationKey, confirmationKey), isNull(subscriptionRenewals.deletedAt)))
-      .limit(1)
-    if (duplicate)
-      return { status: 'duplicate' as const }
+    const confirmationKey = `${assetId}:${input.expectedStartDate}`
+    if (asset.nextRenewalDate !== input.expectedStartDate) {
+      const [duplicate] = await tx.select({ id: subscriptionRenewals.id })
+        .from(subscriptionRenewals)
+        .where(eq(subscriptionRenewals.confirmationKey, confirmationKey))
+        .limit(1)
+      return { status: duplicate ? 'duplicate' as const : 'invalid' as const }
+    }
 
-    await tx.insert(subscriptionRenewals).values({
-      assetId,
-      billingCycle: asset.billingCycle,
-      price: input.price,
-      startDate,
-      notes: input.notes ?? null,
-      confirmationKey,
-    })
+    const startDate = asset.nextRenewalDate
+    const [inserted] = await tx
+      .insert(subscriptionRenewals)
+      .values({
+        assetId,
+        billingCycle: asset.billingCycle,
+        price: input.price,
+        startDate,
+        notes: input.notes ?? null,
+        confirmationKey,
+      })
+      .onConflictDoNothing({ target: subscriptionRenewals.confirmationKey })
+      .returning({ id: subscriptionRenewals.id })
+    if (!inserted)
+      return { status: 'duplicate' as const }
 
     const nextRenewalDate = advanceRenewalDate(startDate, asset.billingCycle)
     await tx.update(assets)

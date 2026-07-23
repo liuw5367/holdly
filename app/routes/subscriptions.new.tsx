@@ -13,6 +13,7 @@ import {
 } from '~/db/queries/assets'
 import { getAssetDetailPath } from '~/lib/asset-meta'
 import { assetFormSchema } from '~/lib/asset.schema'
+import { getInitialRenewalDate } from '~/lib/subscription-renewal'
 import { createSupabaseServerClient } from '~/lib/supabase.server'
 
 export async function loader({ request }: Route.LoaderArgs) {
@@ -65,6 +66,10 @@ export async function action({ request }: Route.ActionArgs) {
     return data({ errors: parsed.error.flatten().fieldErrors }, { headers })
 
   const validated = parsed.data
+  const subscriptionStartDate = validated.subscriptionStartDate || validated.purchaseDate
+  const nextRenewalDate = subscriptionStartDate && validated.billingCycle
+    ? getInitialRenewalDate(subscriptionStartDate, validated.billingCycle)
+    : undefined
   const assetId = await createAsset({
     userId: user.id,
     name: validated.name,
@@ -78,8 +83,12 @@ export async function action({ request }: Route.ActionArgs) {
     purchaseDate: validated.purchaseDate,
     subscriptionPrice: validated.subscriptionPrice,
     billingCycle: validated.billingCycle,
-    subscriptionStartDate: validated.subscriptionStartDate,
+    nextRenewalDate,
+    subscriptionStartDate,
   })
+
+  if (!assetId)
+    return data({ errors: { paymentAccountId: ['支付账户不可用，请重新选择'] } }, { status: 400, headers })
 
   return redirect(getAssetDetailPath({ id: assetId, assetType: 'subscription' }), { headers })
 }

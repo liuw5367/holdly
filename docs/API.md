@@ -206,7 +206,7 @@
 | `resume` | — | 恢复订阅，清除 `subscriptionStoppedAt` + `subscriptionStatus: 'active'` |
 | `delete` | — | 软删除，redirect `/assets` |
 | `update_reminder` | `reminderEnabled`, `reminderSubscriptionDaysOverride` | 更新续费提醒开关与提前天数覆盖 |
-| `renew` | `price`, `notes`, `updateExpectedPrice` | 服务端读取当前周期并幂等确认，只推进一个周期；可同步后续预计价格 |
+| `renew` | `price`, `expectedStartDate`, `notes`, `updateExpectedPrice` | 锁定资产行并核对页面周期令牌后幂等确认，只推进一个周期；可同步后续预计价格 |
 
 ### `GET /subscriptions`
 
@@ -425,6 +425,8 @@
 |---|---|
 | Loader | 返回 XLSX 文件二进制流（`Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`）|
 | Action | 无 |
+
+资产工作表包含购买凭证文本或 URL，确保导出可完整恢复资产录入信息。
 
 ---
 

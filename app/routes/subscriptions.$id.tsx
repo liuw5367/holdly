@@ -150,6 +150,7 @@ export async function action({ request, params }: Route.ActionArgs) {
 
     const parsed = subscriptionRenewalSchema.safeParse({
       price: formData.get('price'),
+      expectedStartDate: formData.get('expectedStartDate'),
       notes: formData.get('notes') ?? undefined,
       updateExpectedPrice: formData.get('updateExpectedPrice') === 'true',
     })
@@ -272,6 +273,7 @@ export default function SubscriptionDetailPage() {
     const fd = new FormData()
     fd.append('intent', 'renew')
     fd.append('price', renewPrice)
+    fd.append('expectedStartDate', renewStartDate)
     fd.append('notes', renewNotes)
     fd.append('updateExpectedPrice', String(updateExpectedPrice))
     submit(fd, { method: 'post' })

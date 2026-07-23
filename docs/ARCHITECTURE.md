@@ -314,7 +314,7 @@ OAuth 和注册邮件确认使用 PKCE code 回调。密码恢复及 OAuth-only 
 | `deleted_at` | TIMESTAMPTZ | 软删除 |
 | `created_at` / `updated_at` | TIMESTAMPTZ | |
 
-新增估值与同步 `assets.current_value` 在同一事务中完成。软删除最新估值时从剩余有效记录按 `valued_on DESC, created_at DESC` 回算当前值；无剩余记录时清空。迁移会为已有非空当前估值补一条去重的 `baseline` 记录。
+新增估值、删除估值和编辑资产估值都会在事务内锁定所属资产行。当前值始终从有效记录按 `valued_on DESC, created_at DESC` 的首条回算；回填旧日期记录不会覆盖较新的当前值，无剩余记录时清空。迁移会为已有非空当前估值补一条去重的 `baseline` 记录。
 
 ### 保修与维修
 
@@ -359,7 +359,7 @@ OAuth 和注册邮件确认使用 PKCE code 回调。密码恢复及 OAuth-only 
 | `deleted_at` | TIMESTAMPTZ | 软删除 |
 | `created_at` / `updated_at` | TIMESTAMPTZ | |
 
-续费确认在事务内锁定服务端读取的 `assets.next_renewal_date` 语义，写入确认键并仅推进一个计费周期。用户可选择是否把实际价格同步为后续 `subscription_price`。查询续费历史必须过滤 `deleted_at IS NULL`。
+续费确认将页面看到的周期起始日作为乐观锁令牌，并在事务内对所属资产执行 `FOR UPDATE`。服务端核对令牌与 `assets.next_renewal_date` 后写入唯一确认键并仅推进一个计费周期；重复请求返回幂等提示。用户可选择是否把实际价格同步为后续 `subscription_price`。查询续费历史必须过滤 `deleted_at IS NULL`。
 
 ### 计划模块
 

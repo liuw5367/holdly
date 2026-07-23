@@ -79,6 +79,7 @@ export const subscriptionRenewalSchema = z.object({
     value => Number.isFinite(Number(value)) && Number(value) > 0,
     '续费金额必须大于 0',
   ),
+  expectedStartDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, '续费周期无效'),
   notes: z.string().trim().max(500, '续费备注最多 500 个字符').optional(),
   updateExpectedPrice: z.boolean(),
 })
