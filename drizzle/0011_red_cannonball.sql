@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "payment_types_user_name_active_unique" ON "payment_types" USING btree ("user_id",lower("name")) WHERE "payment_types"."deleted_at" is null;

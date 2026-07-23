@@ -8,6 +8,11 @@ function doesNotContainSensitiveCardData(value: string): boolean {
   return !sensitiveCardTextPattern.test(value)
 }
 
+export const genericPaymentAccountSchema = z.object({
+  paymentTypeId: z.string().min(1, '请选择支付类型'),
+  name: z.string().trim().min(1, '请输入账户名称').max(60, '名称最多 60 个字符'),
+})
+
 export const creditCardSchema = z.object({
   paymentTypeId: z.string().min(1, '请选择支付类型'),
   name: z.string().trim().min(1, '请输入信用卡名称').max(60, '名称最多 60 个字符').refine(doesNotContainSensitiveCardData, '名称不能包含完整卡号、安全码、密码或验证码'),

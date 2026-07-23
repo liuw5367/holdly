@@ -1,3 +1,4 @@
+import { sql } from 'drizzle-orm'
 import {
   boolean,
   date,
@@ -9,6 +10,7 @@ import {
   text,
   timestamp,
   unique,
+  uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core'
 
@@ -51,13 +53,21 @@ export const tags = pgTable('tags', {
 })
 
 // --- payment_types ---
-export const paymentTypes = pgTable('payment_types', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  userId: uuid('user_id').notNull(),
-  name: text('name').notNull(),
-  isPreset: boolean('is_preset').default(false),
-  deletedAt: timestamp('deleted_at', { withTimezone: true }),
-})
+export const paymentTypes = pgTable(
+  'payment_types',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id').notNull(),
+    name: text('name').notNull(),
+    isPreset: boolean('is_preset').default(false),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
+  },
+  table => [
+    uniqueIndex('payment_types_user_name_active_unique')
+      .on(table.userId, sql`lower(${table.name})`)
+      .where(sql`${table.deletedAt} is null`),
+  ],
+)
 
 // --- payment_accounts ---
 export const paymentAccounts = pgTable('payment_accounts', {

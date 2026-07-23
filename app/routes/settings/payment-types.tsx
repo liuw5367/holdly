@@ -8,7 +8,7 @@ import {
   IconX,
 } from '@tabler/icons-react'
 import { useMemo, useState } from 'react'
-import { data, Form, redirect, useLoaderData, useNavigation } from 'react-router'
+import { data, Form, redirect, useActionData, useLoaderData, useNavigation } from 'react-router'
 import { SubPageHeader } from '~/components/page-header'
 import { Badge } from '~/components/ui/badge'
 import { Button } from '~/components/ui/button'
@@ -19,6 +19,7 @@ import {
   softDeleteSettingsPaymentType,
   updateSettingsPaymentType,
 } from '~/db/queries/settings'
+import { normalizePaymentTypeName } from '~/lib/payment-type'
 import { createSupabaseServerClient } from '~/lib/supabase.server'
 
 export async function loader({ request }: Route.LoaderArgs) {
@@ -45,8 +46,10 @@ export async function action({ request }: Route.ActionArgs) {
     if (!name)
       return data({ ok: false, intent, error: '支付类型名称不能为空' }, { headers })
 
-    await createSettingsPaymentType(user.id, { name })
-    return data({ ok: true, intent }, { headers })
+    const id = await createSettingsPaymentType(user.id, { name })
+    if (!id)
+      return data({ ok: false, intent, error: '支付类型名称已存在' }, { status: 400, headers })
+    return redirect('/settings/payment-types', { headers })
   }
 
   if (intent === 'update') {
@@ -55,8 +58,14 @@ export async function action({ request }: Route.ActionArgs) {
     if (!id || !name)
       return data({ ok: false, intent, error: '参数不完整' }, { headers })
 
-    await updateSettingsPaymentType(user.id, id, { name })
-    return data({ ok: true, intent }, { headers })
+    const result = await updateSettingsPaymentType(user.id, id, { name })
+    if (result === 'forbidden')
+      return data({ ok: false, intent, error: '预置支付类型不能修改' }, { status: 400, headers })
+    if (result === 'duplicate')
+      return data({ ok: false, intent, error: '支付类型名称已存在' }, { status: 400, headers })
+    if (result === 'not_found')
+      return data({ ok: false, intent, error: '支付类型不存在' }, { status: 404, headers })
+    return redirect('/settings/payment-types', { headers })
   }
 
   if (intent === 'delete') {
@@ -64,8 +73,12 @@ export async function action({ request }: Route.ActionArgs) {
     if (!id)
       return data({ ok: false, intent, error: '参数不完整' }, { headers })
 
-    await softDeleteSettingsPaymentType(user.id, id)
-    return data({ ok: true, intent }, { headers })
+    const result = await softDeleteSettingsPaymentType(user.id, id)
+    if (result === 'forbidden')
+      return data({ ok: false, intent, error: '预置支付类型不能删除' }, { status: 400, headers })
+    if (result === 'not_found')
+      return data({ ok: false, intent, error: '支付类型不存在' }, { status: 404, headers })
+    return redirect('/settings/payment-types', { headers })
   }
 
   return data({ ok: false, intent, error: '不支持的操作' }, { headers })
@@ -73,6 +86,7 @@ export async function action({ request }: Route.ActionArgs) {
 
 export default function PaymentTypesPage() {
   const { paymentTypes } = useLoaderData<typeof loader>()
+  const actionData = useActionData<typeof action>()
   const navigation = useNavigation()
 
   const [newName, setNewName] = useState('')
@@ -84,8 +98,22 @@ export default function PaymentTypesPage() {
   const isCreating = navigation.state !== 'idle' && pendingIntent === 'create'
   const isUpdatingCurrent = (id: string) => navigation.state !== 'idle' && pendingIntent === 'update' && pendingId === id
   const isDeletingCurrent = (id: string) => navigation.state !== 'idle' && pendingIntent === 'delete' && pendingId === id
+  const actionError = actionData && 'error' in actionData && typeof actionData.error === 'string'
+    ? actionData.error
+    : null
+  const normalizedNewName = normalizePaymentTypeName(newName)
+  const newNameDuplicate = Boolean(normalizedNewName) && paymentTypes.some(
+    type => normalizePaymentTypeName(type.name) === normalizedNewName,
+  )
+  const normalizedEditName = normalizePaymentTypeName(editName)
+  const editNameDuplicate = Boolean(normalizedEditName) && paymentTypes.some(
+    type => type.id !== editingId && normalizePaymentTypeName(type.name) === normalizedEditName,
+  )
 
-  const canSubmitCreate = useMemo(() => newName.trim().length > 0 && !isCreating, [isCreating, newName])
+  const canSubmitCreate = useMemo(
+    () => newName.trim().length > 0 && !newNameDuplicate && !isCreating,
+    [isCreating, newName, newNameDuplicate],
+  )
 
   return (
     <div className="pb-8">
@@ -95,7 +123,6 @@ export default function PaymentTypesPage() {
         method="post"
         className="mb-6 rounded-2xl p-4"
         style={{ backgroundColor: 'var(--color-surface-card)' }}
-        onSubmit={() => setNewName('')}
       >
         <input type="hidden" name="intent" value="create" />
         <div className="flex items-center gap-3">
@@ -110,7 +137,13 @@ export default function PaymentTypesPage() {
             新增
           </Button>
         </div>
+        {newNameDuplicate && <p className="mt-2 text-sm text-destructive">支付类型名称已存在</p>}
       </Form>
+      {actionError && (
+        <p className="-mt-4 mb-5 text-sm" style={{ color: 'var(--color-error)' }}>
+          {actionError}
+        </p>
+      )}
 
       <div
         className="overflow-hidden rounded-2xl"
@@ -130,19 +163,18 @@ export default function PaymentTypesPage() {
             {editingId === item.id
               ? (
                   <>
-                    <Input
-                      value={editName}
-                      onChange={e => setEditName(e.target.value)}
-                      className="h-9"
-                      autoFocus
-                    />
+                    <div className="min-w-0 flex-1">
+                      <Input
+                        value={editName}
+                        onChange={e => setEditName(e.target.value)}
+                        className="h-9"
+                        autoFocus
+                      />
+                      {editNameDuplicate && <p className="mt-1 text-xs text-destructive">支付类型名称已存在</p>}
+                    </div>
                     <Form
                       method="post"
                       className="flex items-center"
-                      onSubmit={() => {
-                        setEditingId(null)
-                        setEditName('')
-                      }}
                     >
                       <input type="hidden" name="intent" value="update" />
                       <input type="hidden" name="id" value={item.id} />
@@ -151,7 +183,7 @@ export default function PaymentTypesPage() {
                         type="submit"
                         size="icon-sm"
                         variant="ghost"
-                        disabled={!editName.trim() || isUpdatingCurrent(item.id)}
+                        disabled={!editName.trim() || editNameDuplicate || isUpdatingCurrent(item.id)}
                         style={{ color: 'var(--color-primary)' }}
                       >
                         {isUpdatingCurrent(item.id) ? <IconLoader2 className="animate-spin" /> : <IconCheck />}
@@ -177,33 +209,35 @@ export default function PaymentTypesPage() {
                       {item.name}
                     </span>
                     {item.isPreset && <Badge variant="secondary">预置</Badge>}
-                    <div className="ml-auto flex items-center gap-1">
-                      <Button
-                        type="button"
-                        size="icon-sm"
-                        variant="ghost"
-                        style={{ color: 'var(--color-primary)' }}
-                        onClick={() => {
-                          setEditingId(item.id)
-                          setEditName(item.name)
-                        }}
-                      >
-                        <IconPencil />
-                      </Button>
-                      <Form method="post" className="flex items-center">
-                        <input type="hidden" name="intent" value="delete" />
-                        <input type="hidden" name="id" value={item.id} />
+                    {!item.isPreset && (
+                      <div className="ml-auto flex items-center gap-1">
                         <Button
-                          type="submit"
+                          type="button"
                           size="icon-sm"
                           variant="ghost"
-                          disabled={item.isPreset || isDeletingCurrent(item.id)}
-                          style={{ color: 'var(--color-error)' }}
+                          style={{ color: 'var(--color-primary)' }}
+                          onClick={() => {
+                            setEditingId(item.id)
+                            setEditName(item.name)
+                          }}
                         >
-                          {isDeletingCurrent(item.id) ? <IconLoader2 className="animate-spin" /> : <IconTrash />}
+                          <IconPencil />
                         </Button>
-                      </Form>
-                    </div>
+                        <Form method="post" className="flex items-center">
+                          <input type="hidden" name="intent" value="delete" />
+                          <input type="hidden" name="id" value={item.id} />
+                          <Button
+                            type="submit"
+                            size="icon-sm"
+                            variant="ghost"
+                            disabled={isDeletingCurrent(item.id)}
+                            style={{ color: 'var(--color-error)' }}
+                          >
+                            {isDeletingCurrent(item.id) ? <IconLoader2 className="animate-spin" /> : <IconTrash />}
+                          </Button>
+                        </Form>
+                      </div>
+                    )}
                   </>
                 )}
           </div>

@@ -2,7 +2,7 @@ import type { Route } from './+types/settings.payment-card-detail'
 import { IconCreditCard, IconLoader2, IconPencil, IconPlayerPlay, IconPlayerStop } from '@tabler/icons-react'
 import currency from 'currency.js'
 import { useState } from 'react'
-import { data, Link, redirect, useLoaderData, useNavigation, useSubmit } from 'react-router'
+import { data, Link, redirect, useLoaderData, useNavigation, useSearchParams, useSubmit } from 'react-router'
 import { SubPageHeader } from '~/components/page-header'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '~/components/ui/alert-dialog'
 import { Badge } from '~/components/ui/badge'
@@ -53,7 +53,13 @@ export default function PaymentCardDetail() {
   const { account, subscriptions, dates, today } = useLoaderData<typeof loader>()
   const submit = useSubmit()
   const navigation = useNavigation()
+  const [searchParams] = useSearchParams()
   const [confirmOpen, setConfirmOpen] = useState(false)
+  const returnType = searchParams.get('returnType')
+  const returnSuffix = returnType ? `?returnType=${encodeURIComponent(returnType)}` : ''
+  const backTo = returnType
+    ? `/settings/payment-accounts?type=${encodeURIComponent(returnType)}`
+    : '/settings/payment-accounts'
   const activeSubscriptions = subscriptions.filter(item => item.subscriptionStatus === 'active' && !item.subscriptionStoppedAt)
   const next30 = new Date(`${today}T00:00:00`).getTime() + 30 * 86400000
   const expected = activeSubscriptions.reduce((total, item) => {
@@ -73,7 +79,7 @@ export default function PaymentCardDetail() {
 
   return (
     <div className="pb-8">
-      <SubPageHeader backTo="/settings/payment-accounts" title="信用卡资料" primaryAction={{ label: '编辑', icon: IconPencil, to: `/settings/payment-accounts/card/${account.id}` }} />
+      <SubPageHeader backTo={backTo} title="信用卡资料" primaryAction={{ label: '编辑', icon: IconPencil, to: `/settings/payment-accounts/${account.id}/edit${returnSuffix}` }} />
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">

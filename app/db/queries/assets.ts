@@ -14,6 +14,7 @@ import {
   warranties,
 } from '~/db/schema'
 import { belongsToAsset } from '~/lib/asset-resource'
+import { sortPaymentTypes } from '~/lib/payment-type'
 import { advanceRenewalDate } from '~/lib/subscription-renewal'
 import { validateTradeIn } from '~/lib/trade-in'
 
@@ -574,10 +575,12 @@ export async function getTagsByUserId(userId: string) {
 // ========== 支付类型 ==========
 
 export async function getPaymentTypesByUserId(userId: string) {
-  return db
+  const rows = await db
     .select()
     .from(paymentTypes)
     .where(and(eq(paymentTypes.userId, userId), isNull(paymentTypes.deletedAt)))
+
+  return sortPaymentTypes(rows)
 }
 
 // ========== 支付账户 ==========

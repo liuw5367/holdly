@@ -52,6 +52,9 @@ routes.ts
     ├── settings/tags              → settings/tags.tsx
     ├── settings/payment-types     → settings/payment-types.tsx
     ├── settings/payment-accounts  → settings/payment-accounts.tsx
+    ├── settings/payment-accounts/new      → settings.payment-account-new.tsx
+    ├── settings/payment-accounts/:id/edit → settings.payment-account-editor.tsx
+    ├── settings/payment-accounts/:id      → settings.payment-card-detail.tsx
     ├── settings/reminders         → settings/reminders.tsx
     └── settings/data              → settings/data.tsx
 ├── settings/export-xlsx           → settings.export-xlsx.tsx（认证导出，无布局）
@@ -233,6 +236,8 @@ OAuth 和注册邮件确认使用 PKCE code 回调。密码恢复及 OAuth-only 
 
 **`payment_types`** — 支付类型
 
+预置类型不可修改或删除，并优先于自定义类型展示。应用层按固定顺序排列预置类型，Apple Pay 和其他固定在预置列表末尾；自定义类型随后按名称排序。有效类型名称在用户范围内通过服务端校验和条件唯一索引保持唯一，软删除后名称可复用。固定预置的「信用卡」类型用于新建时启用信用卡资料字段。
+
 | 字段 | 类型 | 说明 |
 |---|---|---|
 | `id` | UUID PK | |
@@ -244,7 +249,7 @@ OAuth 和注册邮件确认使用 PKCE code 回调。密码恢复及 OAuth-only 
 
 **`payment_accounts`** — 支付账户
 
-普通账户和信用卡共用此表。信用卡通过 `account_kind = credit_card` 启用以下元数据：`bank_name`、`last_four`、`notes`、`statement_day`、`repayment_rule`、`repayment_day`、`repayment_days_after_statement`、`credit_limit`、`currency_code`、`is_active`。不保存完整卡号或任何安全凭证。
+普通账户和信用卡共用此表与账户编辑页。新建时由固定预置信用卡类型决定 `account_kind`，编辑时不允许切换支付类型。信用卡通过 `account_kind = credit_card` 启用以下元数据：`bank_name`、`last_four`、`notes`、`statement_day`、`repayment_rule`、`repayment_day`、`repayment_days_after_statement`、`credit_limit`、`currency_code`、`is_active`。不保存完整卡号或任何安全凭证。
 
 信用卡日期由应用层将 29–31 日钳制到短月份最后一天。订阅仍通过 `assets.payment_account_id` 关联；聚合按 `currency_code` 分组，不提供汇率换算。停用账户不参与新关联选择，但已有关系可读。
 

@@ -51,6 +51,10 @@ CREATE TABLE IF NOT EXISTS public.payment_types (
   deleted_at TIMESTAMPTZ
 );
 
+CREATE UNIQUE INDEX IF NOT EXISTS payment_types_user_name_active_unique
+  ON public.payment_types (user_id, lower(name))
+  WHERE deleted_at IS NULL;
+
 -- 5. payment_accounts（支付账户）
 CREATE TABLE IF NOT EXISTS public.payment_accounts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -349,8 +353,8 @@ BEGIN
     (NEW.id, '借记卡', TRUE),
     (NEW.id, '微信支付', TRUE),
     (NEW.id, '支付宝', TRUE),
-    (NEW.id, 'Apple Pay', TRUE),
     (NEW.id, '现金', TRUE),
+    (NEW.id, 'Apple Pay', TRUE),
     (NEW.id, '其他', TRUE);
 
   RETURN NEW;

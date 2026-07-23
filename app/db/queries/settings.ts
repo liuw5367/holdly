@@ -9,6 +9,7 @@ import {
   profiles,
   tags,
 } from '~/db/schema'
+import { normalizePaymentTypeName, sortPaymentTypes } from '~/lib/payment-type'
 
 export async function getSettingsProfileByUserId(userId: string) {
   const rows = await db
@@ -198,7 +199,7 @@ export async function softDeleteSettingsTag(userId: string, id: string) {
 }
 
 export async function getSettingsPaymentTypesByUserId(userId: string) {
-  return db
+  const rows = await db
     .select({
       id: paymentTypes.id,
       name: paymentTypes.name,
@@ -207,9 +208,16 @@ export async function getSettingsPaymentTypesByUserId(userId: string) {
     .from(paymentTypes)
     .where(and(eq(paymentTypes.userId, userId), isNull(paymentTypes.deletedAt)))
     .orderBy(asc(paymentTypes.name))
+
+  return sortPaymentTypes(rows)
 }
 
 export async function createSettingsPaymentType(userId: string, input: { name: string }) {
+  const existing = await getSettingsPaymentTypesByUserId(userId)
+  const normalizedName = normalizePaymentTypeName(input.name)
+  if (existing.some(type => normalizePaymentTypeName(type.name) === normalizedName))
+    return null
+
   const [row] = await db
     .insert(paymentTypes)
     .values({
@@ -217,16 +225,45 @@ export async function createSettingsPaymentType(userId: string, input: { name: s
       name: input.name,
       isPreset: false,
     })
+    .onConflictDoNothing()
     .returning({ id: paymentTypes.id })
 
-  return row.id
+  return row?.id ?? null
 }
 
 export async function updateSettingsPaymentType(userId: string, id: string, input: { name: string }) {
-  await db
-    .update(paymentTypes)
-    .set({ name: input.name })
-    .where(and(eq(paymentTypes.id, id), eq(paymentTypes.userId, userId), isNull(paymentTypes.deletedAt)))
+  const existing = await getSettingsPaymentTypesByUserId(userId)
+  const target = existing.find(type => type.id === id)
+  if (!target)
+    return 'not_found' as const
+  if (target.isPreset)
+    return 'forbidden' as const
+
+  const normalizedName = normalizePaymentTypeName(input.name)
+  if (existing.some(type => type.id !== id && normalizePaymentTypeName(type.name) === normalizedName))
+    return 'duplicate' as const
+
+  try {
+    const [row] = await db
+      .update(paymentTypes)
+      .set({ name: input.name })
+      .where(and(eq(paymentTypes.id, id), eq(paymentTypes.userId, userId), eq(paymentTypes.isPreset, false), isNull(paymentTypes.deletedAt)))
+      .returning({ id: paymentTypes.id })
+
+    return row ? 'updated' as const : 'not_found' as const
+  }
+  catch (error) {
+    if (isPostgresUniqueViolation(error))
+      return 'duplicate' as const
+    throw error
+  }
+}
+
+function isPostgresUniqueViolation(error: unknown): boolean {
+  return typeof error === 'object'
+    && error !== null
+    && 'code' in error
+    && error.code === '23505'
 }
 
 export async function softDeleteSettingsPaymentType(userId: string, id: string) {
@@ -236,8 +273,10 @@ export async function softDeleteSettingsPaymentType(userId: string, id: string) 
     .where(and(eq(paymentTypes.id, id), eq(paymentTypes.userId, userId), isNull(paymentTypes.deletedAt)))
     .limit(1)
 
-  if (!rows[0] || rows[0].isPreset)
-    return
+  if (!rows[0])
+    return 'not_found' as const
+  if (rows[0].isPreset)
+    return 'forbidden' as const
 
   await db
     .update(paymentTypes)
@@ -248,6 +287,8 @@ export async function softDeleteSettingsPaymentType(userId: string, id: string) 
     .update(paymentAccounts)
     .set({ deletedAt: new Date() })
     .where(and(eq(paymentAccounts.userId, userId), eq(paymentAccounts.paymentTypeId, id), isNull(paymentAccounts.deletedAt)))
+
+  return 'deleted' as const
 }
 
 export async function getSettingsPaymentAccountsByUserId(userId: string) {
@@ -261,6 +302,10 @@ export async function getSettingsPaymentAccountsByUserId(userId: string) {
       lastFour: paymentAccounts.lastFour,
       currencyCode: paymentAccounts.currencyCode,
       isActive: paymentAccounts.isActive,
+      statementDay: paymentAccounts.statementDay,
+      repaymentRule: paymentAccounts.repaymentRule,
+      repaymentDay: paymentAccounts.repaymentDay,
+      repaymentDaysAfterStatement: paymentAccounts.repaymentDaysAfterStatement,
     })
     .from(paymentAccounts)
     .where(and(eq(paymentAccounts.userId, userId), isNull(paymentAccounts.deletedAt)))

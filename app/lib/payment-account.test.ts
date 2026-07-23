@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { clampBillingDay, creditCardSchema, getNextCardDates } from './payment-account.schema'
+import { clampBillingDay, creditCardSchema, genericPaymentAccountSchema, getNextCardDates } from './payment-account.schema'
 
 const validCard = {
   paymentTypeId: 'type-1',
@@ -44,5 +44,18 @@ describe('信用卡资料', () => {
       statementDate: '2026-02-28',
       repaymentDate: '2026-03-05',
     })
+  })
+})
+
+describe('普通支付账户', () => {
+  it('只要求支付类型和账户名称', () => {
+    expect(genericPaymentAccountSchema.parse({ paymentTypeId: 'type-1', name: ' 微信零钱 ' })).toEqual({
+      paymentTypeId: 'type-1',
+      name: '微信零钱',
+    })
+  })
+
+  it('拒绝空名称', () => {
+    expect(genericPaymentAccountSchema.safeParse({ paymentTypeId: 'type-1', name: '  ' }).success).toBe(false)
   })
 })

@@ -381,16 +381,18 @@
 
 | 类型 | 说明 |
 |---|---|
-| Loader | 返回 `{ paymentTypes }` |
-| Action `create` | 参数 `name` |
-| Action `update` | 参数 `id` + `name` |
-| Action `delete` | 参数 `id`，软删除 + 级联软删除下级 `payment_accounts` |
+| Loader | 返回排序后的 `{ paymentTypes }`，预置类型优先，Apple Pay 和其他位于预置末尾 |
+| Action `create` | 参数 `name`；拒绝与现有有效类型重名 |
+| Action `update` | 参数 `id` + `name`；仅允许自定义类型且拒绝重名 |
+| Action `delete` | 参数 `id`；仅允许自定义类型，软删除并级联软删除下级 `payment_accounts` |
 
-### 信用卡资料
+### 支付账户编辑与信用卡资料
 
 | 路由 | 说明 |
 |---|---|
-| `GET/POST /settings/payment-accounts/card/:id?` | 新增或编辑信用卡资料；服务端校验尾号、日期、还款规则、额度和币种 |
+| `GET/POST /settings/payment-accounts/new` | 统一新增账户；固定预置信用卡类型校验完整卡片资料，其他类型只校验名称 |
+| `GET/POST /settings/payment-accounts/:id/edit` | 统一编辑账户；支付类型不可变更 |
+| `GET /settings/payment-accounts/card/:id?` | 兼容旧链接并重定向到统一新增或编辑页 |
 | `GET/POST /settings/payment-accounts/:id` | 展示资料、关联订阅和未来 30 天预计扣费；POST 切换启停状态 |
 
 所有查询验证支付账户属于当前用户。接口只接受四位尾号，不定义完整卡号、CVV、密码或余额字段。
@@ -399,9 +401,7 @@
 
 | 类型 | 说明 |
 |---|---|
-| Loader | 返回 `{ paymentTypes, paymentAccounts }` |
-| Action `create` | 参数 `name` + `paymentTypeId` |
-| Action `update` | 参数 `id` + `name` |
+| Loader | 返回 `{ paymentTypes, paymentAccounts }`，账户列表包含信用卡账单日期计算所需字段 |
 | Action `delete` | 参数 `id`，软删除 |
 
 ### `GET /settings/data`
