@@ -812,6 +812,22 @@ export async function getSubscriptionRenewals(assetId: string) {
     .orderBy(desc(subscriptionRenewals.startDate), desc(subscriptionRenewals.createdAt))
 }
 
+export async function softDeleteSubscriptionRenewal(recordId: string, assetId: string, userId: string) {
+  return db.transaction(async (tx) => {
+    // 与续费操作使用同一资产行锁，确保归属和有效状态在删除期间保持一致。
+    const [asset] = await tx.select({ id: assets.id }).from(assets).where(and(eq(assets.id, assetId), eq(assets.userId, userId), eq(assets.assetType, 'subscription'), isNull(assets.deletedAt))).for('update')
+    if (!asset)
+      return false
+
+    // 删除历史不撤销已确认的周期，保留确认键避免旧请求再次推进续费日。
+    const [record] = await tx.update(subscriptionRenewals)
+      .set({ deletedAt: new Date() })
+      .where(and(eq(subscriptionRenewals.id, recordId), eq(subscriptionRenewals.assetId, assetId), isNull(subscriptionRenewals.deletedAt)))
+      .returning({ id: subscriptionRenewals.id })
+    return Boolean(record)
+  })
+}
+
 export async function createRenewal(
   assetId: string,
   userId: string,

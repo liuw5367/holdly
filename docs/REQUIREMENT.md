@@ -178,7 +178,7 @@ Dashboard 中展示的到期天数基于到期日计算。
 
 ### 3.6 软删除
 
-带 `deleted_at` 的用户业务实体必须软删除，查询时过滤 `deleted_at IS NULL`。维修记录允许硬删除；`asset_tags` 等关联表在移除关系时直接删除关联行。保修、续费和提醒任务属于附属记录，不提供面向用户的删除入口。
+带 `deleted_at` 的用户业务实体必须软删除，查询时过滤 `deleted_at IS NULL`。维修记录允许硬删除；`asset_tags` 等关联表在移除关系时直接删除关联行。续费历史支持确认后软删除，保留续费日期、预计价格和周期确认键；保修和提醒任务不提供面向用户的删除入口。
 
 ### 3.7 Plans 净值
 
@@ -333,7 +333,7 @@ emoji + 名称 + 状态指示点 + 每日成本 + 类型标签 + 分类 + 标签
 - 状态：active/cancelled 徽标
 - **取消订阅**：弹出 Dialog，选择取消日期（日期选择器），确认后设置 `subscriptionStoppedAt` 和 `subscriptionStatus: 'cancelled'`（系统不再发送续费提醒）
 - **过期状态**：`expired` 表示订阅已自然过期（非手动取消），不可恢复
-- **记录续费**：弹出 Dialog，金额预填 `subscriptionPrice`（可编辑），可填写备注，并选择是否更新后续预计价格。服务端以当前 `nextRenewalDate` 作为本次周期，每次确认只推进一个周期；确认键避免重复提交。详情展示完整续费历史。
+- **记录续费**：弹出 Dialog，金额预填 `subscriptionPrice`（可编辑），可填写备注，并选择是否更新后续预计价格。服务端以当前 `nextRenewalDate` 作为本次周期，每次确认只推进一个周期；确认键避免重复提交。详情展示有效续费历史，每条记录右下角可确认删除。删除不撤销已确认的周期，不回退下次续费日期或修改订阅价格。
 - **恢复订阅**：仅取消状态的订阅展示此按钮，一键恢复为 active 状态，清除 `subscriptionStoppedAt`
 - **编辑**：跳转 `/subscriptions/:id/edit`
 - **删除**：二次确认 Alert Dialog，确认后软删除并跳转 `/assets`

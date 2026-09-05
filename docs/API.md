@@ -206,6 +206,7 @@
 | `resume` | — | 恢复订阅，清除 `subscriptionStoppedAt` + `subscriptionStatus: 'active'` |
 | `delete` | — | 软删除，redirect `/assets` |
 | `update_reminder` | `reminderEnabled`, `reminderSubscriptionDaysOverride` | 更新续费提醒开关与提前天数覆盖 |
+| `delete-renewal` | `recordId` | 校验归属后软删除续费历史；保留续费日期、预计价格和周期确认键 |
 | `renew` | `price`, `expectedStartDate`, `notes`, `updateExpectedPrice` | 锁定资产行并核对页面周期令牌后幂等确认，只推进一个周期；可同步后续预计价格 |
 
 ### `POST /subscriptions/new`

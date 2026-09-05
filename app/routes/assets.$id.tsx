@@ -1,5 +1,5 @@
 import type { Route } from './+types/assets.$id'
-import { IconBell, IconCheck, IconCoin, IconLoader2, IconPencil, IconPlus, IconRefresh, IconTrash, IconX } from '@tabler/icons-react'
+import { IconBell, IconCheck, IconCoin, IconLoader2, IconPencil, IconRefresh, IconShieldCheck, IconTools, IconTrash, IconTrendingUp, IconX } from '@tabler/icons-react'
 import currency from 'currency.js'
 import React, { useEffect, useMemo, useState } from 'react'
 import { data, redirect, useActionData, useLoaderData, useNavigate, useNavigation, useSubmit } from 'react-router'
@@ -625,7 +625,7 @@ export default function AssetDetailPage() {
               <LineChart data={[...valueRecords].reverse()} margin={{ top: 12, right: 8, bottom: 0, left: 0 }}>
                 <CartesianGrid vertical={false} />
                 <XAxis dataKey="valuedOn" tickLine={false} axisLine={false} tickMargin={8} minTickGap={24} />
-                <YAxis hide domain={['dataMin', 'dataMax']} />
+                <YAxis width="auto" tickLine={false} axisLine={false} tickMargin={8} tickFormatter={value => formatInteger(value)} domain={['dataMin', 'dataMax']} />
                 <ChartTooltip content={<ChartTooltipContent labelKey="valuedOn" />} />
                 <Line dataKey="value" type="monotone" stroke="var(--color-value)" strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 4 }} />
               </LineChart>
@@ -633,19 +633,15 @@ export default function AssetDetailPage() {
           )}
           <div className="flex flex-col">
             {valueRecords.map((record, index) => (
-              <div key={record.id} className="flex items-start gap-3 py-3" style={{ borderTop: index > 0 || valueRecords.length > 1 ? '1px solid var(--color-hairline)' : undefined }}>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-baseline justify-between gap-3">
-                    <span className="font-medium tabular-nums" style={{ color: 'var(--color-ink)' }}>{formatInteger(record.value)}</span>
-                    <time className="text-xs tabular-nums" style={{ color: 'var(--color-muted)' }}>{record.valuedOn}</time>
-                  </div>
-                  <div className="mt-1 text-xs" style={{ color: 'var(--color-muted)' }}>
-                    {({ manual: '手动估值', market: '市场参考', professional: '专业估值', baseline: '历史基线' })[record.source]}
-                    {record.notes ? ` · ${record.notes}` : ''}
-                  </div>
+              <div key={record.id} className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 py-3" style={{ borderTop: index > 0 || valueRecords.length > 1 ? '1px solid var(--color-hairline)' : undefined }}>
+                <span className="font-medium tabular-nums" style={{ color: 'var(--color-ink)' }}>{formatInteger(record.value)}</span>
+                <time className="text-right text-xs tabular-nums" style={{ color: 'var(--color-muted)' }}>{record.valuedOn}</time>
+                <div className="mt-1 break-words text-xs" style={{ color: 'var(--color-muted)' }}>
+                  {({ manual: '手动估值', market: '市场参考', professional: '专业估值', baseline: '历史基线' })[record.source]}
+                  {record.notes ? ` · ${record.notes}` : ''}
                 </div>
-                <Button type="button" size="icon-sm" variant="ghost" aria-label="删除估值记录" onClick={() => setDeletingValueRecordId(record.id)}>
-                  <IconTrash />
+                <Button type="button" size="icon-xs" variant="ghost" className="size-7 self-end justify-self-end text-muted-foreground" aria-label="删除估值记录" onClick={() => setDeletingValueRecordId(record.id)}>
+                  <IconX className="size-3" stroke={1.5} />
                 </Button>
               </div>
             ))}
@@ -817,44 +813,44 @@ export default function AssetDetailPage() {
       </Sheet>
 
       <div className="mt-4 grid grid-cols-2 gap-2">
-        <Button className="h-10 text-[13px]" variant="secondary" onClick={() => setValueDialogOpen(true)}>
-          <IconCoin data-icon="inline-start" />
+        <Button size="sm" className="h-10 text-[13px]" variant="secondary" onClick={() => setValueDialogOpen(true)}>
+          <IconTrendingUp className="size-3.5" data-icon="inline-start" />
           记录估值
         </Button>
         {!warranty && (
-          <Button className="h-10 text-[13px]" variant="default" onClick={() => setWarrantyDialogOpen(true)}>
-            <IconPencil size={14} data-icon="inline-start" />
+          <Button size="sm" className="h-10 text-[13px]" variant="secondary" onClick={() => setWarrantyDialogOpen(true)}>
+            <IconShieldCheck className="size-3.5" data-icon="inline-start" />
             编辑保修
           </Button>
         )}
         {repairRecords.length === 0 && (
-          <Button className="h-10 text-[13px]" variant="default" onClick={handleOpenAddRepair}>
-            <IconPlus size={14} data-icon="inline-start" />
+          <Button size="sm" className="h-10 text-[13px]" variant="secondary" onClick={handleOpenAddRepair}>
+            <IconTools className="size-3.5" data-icon="inline-start" />
             添加维修
           </Button>
         )}
-        <Button className="h-10 text-[13px]" variant="default" onClick={() => navigate(`/assets/${asset.id}/edit`)}>
-          <IconPencil size={14} data-icon="inline-start" />
+        <Button size="sm" className="h-10 text-[13px]" variant="secondary" onClick={() => navigate(`/assets/${asset.id}/edit`)}>
+          <IconPencil className="size-3.5" data-icon="inline-start" />
           编辑资产
         </Button>
-        <Button className="h-10 text-[13px]" variant="default" onClick={handleOpenReminderDialog}>
-          <IconBell size={14} data-icon="inline-start" />
+        <Button size="sm" className="h-10 text-[13px]" variant="secondary" onClick={handleOpenReminderDialog}>
+          <IconBell className="size-3.5" data-icon="inline-start" />
           提醒设置
         </Button>
         {!asset.tradedInAt && (
-          <Button className="h-10 text-[13px]" variant="default" onClick={() => setSellDialogOpen(true)}>
-            <IconCoin size={14} data-icon="inline-start" />
+          <Button size="sm" className="h-10 text-[13px]" variant="secondary" onClick={() => setSellDialogOpen(true)}>
+            <IconCoin className="size-3.5" data-icon="inline-start" />
             卖出资产
           </Button>
         )}
         {!asset.tradedInAt && (
-          <Button className="h-10 text-[13px]" variant="default" onClick={() => navigate(`/assets/${asset.id}/trade-in`)}>
-            <IconRefresh size={14} data-icon="inline-start" />
+          <Button size="sm" className="h-10 text-[13px]" variant="secondary" onClick={() => navigate(`/assets/${asset.id}/trade-in`)}>
+            <IconRefresh className="size-3.5" data-icon="inline-start" />
             以旧换新
           </Button>
         )}
-        <Button className="h-10 text-[13px]" variant="destructive" onClick={() => setDeleteDialogOpen(true)}>
-          <IconTrash size={14} data-icon="inline-start" />
+        <Button size="sm" className="h-10 text-[13px]" variant="destructive" onClick={() => setDeleteDialogOpen(true)}>
+          <IconTrash className="size-3.5" data-icon="inline-start" />
           删除资产
         </Button>
       </div>

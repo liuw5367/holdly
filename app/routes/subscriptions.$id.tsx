@@ -1,7 +1,7 @@
 import type { Route } from './+types/subscriptions.$id'
-import { IconBell, IconCheck, IconLoader2, IconPencil, IconPlayerPlay, IconPlayerStop, IconRepeat, IconTrash, IconX } from '@tabler/icons-react'
+import { IconBell, IconCheck, IconLoader2, IconPencil, IconPlayerPlay, IconRepeat, IconRepeatOff, IconTrash, IconX } from '@tabler/icons-react'
 import { useEffect, useMemo, useState } from 'react'
-import { data, redirect, useActionData, useLoaderData, useNavigate, useNavigation, useSearchParams, useSubmit } from 'react-router'
+import { data, redirect, useActionData, useFetcher, useLoaderData, useNavigate, useNavigation, useSearchParams, useSubmit } from 'react-router'
 import { toast } from 'sonner'
 import { SubPageHeader } from '~/components/page-header'
 import {
@@ -40,6 +40,7 @@ import {
   getTagsByUserId,
   resumeSubscription,
   softDeleteAsset,
+  softDeleteSubscriptionRenewal,
   stopSubscription,
   updateSubscriptionReminder,
 } from '~/db/queries/assets'
@@ -117,6 +118,17 @@ export async function action({ request, params }: Route.ActionArgs) {
   if (!ownedAsset || ownedAsset.assetType !== 'subscription')
     throw new Response('Not Found', { status: 404, headers })
 
+  if (intent === 'delete-renewal') {
+    const recordId = String(formData.get('recordId') || '')
+    // 校验记录 UUID，避免无效输入进入数据库 UUID 比较。
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(recordId))
+      return data({ ok: false, error: '续费记录无效' }, { status: 400, headers })
+    const deleted = await softDeleteSubscriptionRenewal(recordId, params.id, user.id)
+    if (!deleted)
+      return data({ ok: false, error: '续费记录不存在或已删除' }, { status: 404, headers })
+    return data({ ok: true }, { headers })
+  }
+
   if (intent === 'cancel') {
     const stoppedAt = String(formData.get('stoppedAt') || '')
     await stopSubscription(params.id, user.id, stoppedAt)
@@ -183,6 +195,16 @@ export default function SubscriptionDetailPage() {
     latestRenewal,
     renewals,
   } = useLoaderData<typeof loader>()
+  const renewalDelete = useFetcher<typeof action>()
+  const [deletingRenewalId, setDeletingRenewalId] = useState<string | null>(null)
+  const deletingRenewal = renewals.find(record => record.id === deletingRenewalId)
+  const isDeletingRenewal = renewalDelete.state !== 'idle'
+  useEffect(() => {
+    if (renewalDelete.state !== 'idle' || !renewalDelete.data)
+      return
+    if (!renewalDelete.data.ok && 'error' in renewalDelete.data)
+      toast.error(String(renewalDelete.data.error))
+  }, [renewalDelete.state, renewalDelete.data])
   const actionData = useActionData<typeof action>()
   const [searchParams] = useSearchParams()
 
@@ -373,55 +395,80 @@ export default function SubscriptionDetailPage() {
       {renewals.length > 0 && (
         <SectionCard title="续费历史" className="mt-3">
           {renewals.map((renewal, index) => (
-            <div key={renewal.id} className="py-3" style={{ borderBottom: index < renewals.length - 1 ? '1px solid var(--color-hairline)' : undefined }}>
-              <div className="flex items-baseline justify-between gap-3">
-                <span className="font-medium tabular-nums" style={{ color: 'var(--color-ink)' }}>{formatInteger(renewal.price)}</span>
-                <time className="text-xs tabular-nums" style={{ color: 'var(--color-muted)' }}>{renewal.startDate}</time>
-              </div>
-              <div className="mt-1 text-xs" style={{ color: 'var(--color-muted)' }}>
+            <div key={renewal.id} className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 py-3" style={{ borderBottom: index < renewals.length - 1 ? '1px solid var(--color-hairline)' : undefined }}>
+              <span className="font-medium tabular-nums" style={{ color: 'var(--color-ink)' }}>{formatInteger(renewal.price)}</span>
+              <time className="text-right text-xs tabular-nums" style={{ color: 'var(--color-muted)' }}>{renewal.startDate}</time>
+              <div className="mt-1 break-words text-xs" style={{ color: 'var(--color-muted)' }}>
                 {getBillingCycleLabel(renewal.billingCycle)}
                 {renewal.notes ? ` · ${renewal.notes}` : ''}
               </div>
+              <Button type="button" size="icon-xs" variant="ghost" className="size-7 self-end justify-self-end text-muted-foreground" aria-label="删除续费记录" onClick={() => setDeletingRenewalId(renewal.id)}>
+                <IconX className="size-3" stroke={1.5} />
+              </Button>
             </div>
           ))}
         </SectionCard>
       )}
 
       {!ended && (
-        <Button className="mt-4 h-10 w-full text-[13px]" variant="default" onClick={handleOpenRenewDialog}>
-          <IconRepeat size={14} data-icon="inline-start" />
+        <Button size="sm" className="mt-4 h-10 w-full text-[13px]" variant="secondary" onClick={handleOpenRenewDialog}>
+          <IconRepeat className="size-3.5" data-icon="inline-start" />
           记录续费
         </Button>
       )}
 
       <div className="mt-2 grid grid-cols-2 gap-2">
-        <Button className="h-10 text-[13px]" variant="default" onClick={() => navigate(`/subscriptions/${asset.id}/edit`)}>
-          <IconPencil size={14} data-icon="inline-start" />
+        <Button size="sm" className="h-10 text-[13px]" variant="secondary" onClick={() => navigate(`/subscriptions/${asset.id}/edit`)}>
+          <IconPencil className="size-3.5" data-icon="inline-start" />
           编辑订阅
         </Button>
-        <Button className="h-10 text-[13px]" variant="default" onClick={handleOpenReminderDialog}>
-          <IconBell size={14} data-icon="inline-start" />
+        <Button size="sm" className="h-10 text-[13px]" variant="secondary" onClick={handleOpenReminderDialog}>
+          <IconBell className="size-3.5" data-icon="inline-start" />
           提醒设置
         </Button>
         {ended
           ? (
-              <Button className="h-10 text-[13px]" variant="default" onClick={onResume} disabled={isSubmitting}>
-                {isSubmitting && <IconLoader2 size={14} className="animate-spin" />}
-                {!isSubmitting && <IconPlayerPlay size={14} data-icon="inline-start" />}
+              <Button size="sm" className="h-10 text-[13px]" variant="secondary" onClick={onResume} disabled={isSubmitting}>
+                {isSubmitting && <IconLoader2 className="size-3.5 animate-spin" />}
+                {!isSubmitting && <IconPlayerPlay className="size-3.5" data-icon="inline-start" />}
                 恢复订阅
               </Button>
             )
           : (
-              <Button className="h-10 text-[13px]" variant="default" onClick={() => setCancelDialogOpen(true)}>
-                <IconPlayerStop size={14} data-icon="inline-start" />
+              <Button size="sm" className="h-10 text-[13px]" variant="secondary" onClick={() => setCancelDialogOpen(true)}>
+                <IconRepeatOff className="size-3.5" data-icon="inline-start" />
                 取消订阅
               </Button>
             )}
-        <Button className="h-10 text-[13px]" variant="destructive" onClick={() => setDeleteDialogOpen(true)}>
-          <IconTrash size={14} data-icon="inline-start" />
+        <Button size="sm" className="h-10 text-[13px]" variant="destructive" onClick={() => setDeleteDialogOpen(true)}>
+          <IconTrash className="size-3.5" data-icon="inline-start" />
           删除订阅
         </Button>
       </div>
+
+      <AlertDialog open={Boolean(deletingRenewal)} onOpenChange={open => !open && !isDeletingRenewal && setDeletingRenewalId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>删除续费记录</AlertDialogTitle>
+            <AlertDialogDescription>
+              确定删除
+              {' '}
+              {deletingRenewal?.startDate}
+              {' '}
+              的续费记录
+              {deletingRenewal ? `（${formatInteger(deletingRenewal.price)}）` : ''}
+              ？删除后不会回退下次续费日期或修改订阅价格。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel variant="secondary" disabled={isDeletingRenewal}>取消</AlertDialogCancel>
+            <Button variant="destructive" disabled={isDeletingRenewal} onClick={() => renewalDelete.submit({ intent: 'delete-renewal', recordId: deletingRenewalId! }, { method: 'post' })}>
+              {isDeletingRenewal && <IconLoader2 className="size-3.5 animate-spin" />}
+              删除记录
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <Dialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
         <DialogContent>
