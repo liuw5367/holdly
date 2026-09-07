@@ -85,14 +85,14 @@ export default function PaymentCardDetail() {
       <Card>
         <CardHeader>
           <CardTitle className="flex min-w-0 items-center gap-2 break-words">
-            <IconCreditCard />
+            <IconCreditCard className="shrink-0" />
             <span className="min-w-0 break-words">
               {account.bankName}
               {' · '}
               {account.name}
             </span>
           </CardTitle>
-          <CardDescription>
+          <CardDescription className="break-words">
             {account.lastFour ? `尾号 ${account.lastFour}` : '未填写尾号'}
             {' '}
             ·
@@ -100,7 +100,7 @@ export default function PaymentCardDetail() {
             {account.currencyCode}
           </CardDescription>
         </CardHeader>
-        <CardContent className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+        <CardContent className="grid grid-cols-1 gap-x-4 gap-y-3 text-sm sm:grid-cols-2">
           <Info label="状态" value={<Badge variant={account.isActive ? 'secondary' : 'outline'}>{account.isActive ? '使用中' : '已停用'}</Badge>} />
           <Info label="额度" value={account.creditLimit ? `${account.currencyCode} ${formatInteger(account.creditLimit)}` : '未填写'} />
           <Info label="下次出账" value={dates?.statementDate || '未设置'} />
@@ -191,7 +191,7 @@ function Info({ label, value }: { label: string, value: React.ReactNode }) {
   return (
     <div>
       <div className="text-xs text-muted-foreground">{label}</div>
-      <div className="mt-1 font-medium tabular-nums">{value}</div>
+      <div className="mt-1 break-words font-medium tabular-nums">{value}</div>
     </div>
   )
 }

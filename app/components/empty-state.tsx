@@ -20,7 +20,7 @@ export function EmptyState({ emoji, title, description, actions }: EmptyStatePro
   return (
     <div
       className="flex flex-col items-center justify-center rounded-2xl border py-14"
-      style={{ borderColor: 'var(--color-hairline)' }}
+      style={{ borderColor: 'var(--color-hairline)', background: 'var(--color-surface-card)' }}
     >
       <span className="mb-2 text-4xl">{emoji}</span>
       <p className="mb-4 text-sm" style={{ color: 'var(--color-muted)' }}>{title}</p>

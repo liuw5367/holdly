@@ -2,7 +2,7 @@ import type { TablerIcon } from '@tabler/icons-react'
 import type { ReactNode } from 'react'
 import { IconArrowLeft, IconDots, IconLoader2 } from '@tabler/icons-react'
 import { Link } from 'react-router'
-import { Button } from '~/components/ui/button'
+import { Button, buttonVariants } from '~/components/ui/button'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -64,7 +64,7 @@ export function SubPageHeader({
                 <Link
                   to={primaryAction.to}
                   aria-label={primaryAction.ariaLabel || primaryAction.label}
-                  className="flex items-center gap-1 text-[14px] font-medium"
+                  className={buttonVariants({ variant: 'ghost', size: 'sm', className: 'h-9 gap-1 px-2 text-[14px] font-medium' })}
                   style={{ color: 'var(--color-primary)' }}
                 >
                   {primaryAction.icon && <primaryAction.icon size={14} />}
@@ -145,8 +145,7 @@ export function MainPageHeader({ title, action, actions, trailing }: MainPageHea
             <Link
               key={action.label}
               to={action.to}
-              className="rounded-lg px-3.5 py-2 text-[13px] font-medium transition-opacity hover:opacity-80"
-              style={{ background: 'var(--color-primary)', color: '#fff' }}
+              className={buttonVariants({ variant: 'default', size: 'sm', className: 'h-9 px-3.5 text-[13px]' })}
             >
               {action.label}
             </Link>

@@ -72,6 +72,10 @@
     --color-body: #d4d0c8;
     --color-muted: #a09d96;
     --color-muted-soft: #8e8b82;
+    --color-success: #8acb95;
+    --color-warning: #e6bd57;
+    --color-error: #e87676;
+    --color-info: #7dd3c1;
     --color-primary-foreground: #ffffff;
     --color-destructive-foreground: #ffffff;
   }
@@ -87,6 +91,10 @@
   --color-body: #d4d0c8;
   --color-muted: #a09d96;
   --color-muted-soft: #8e8b82;
+  --color-success: #8acb95;
+  --color-warning: #e6bd57;
+  --color-error: #e87676;
+  --color-info: #7dd3c1;
   --color-primary-foreground: #ffffff;
   --color-destructive-foreground: #ffffff;
 }

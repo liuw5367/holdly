@@ -287,7 +287,7 @@ export function AssetForm({
         )}
       >
         <input type="hidden" {...register('assetType')} value={isSubscription ? 'subscription' : 'one_time'} />
-        <button
+        <Button
           ref={(el) => {
             (internalSubmitRef as { current: HTMLButtonElement | null }).current = el
             if (typeof submitRef === 'function')

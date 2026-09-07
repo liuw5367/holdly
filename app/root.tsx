@@ -13,6 +13,7 @@ import {
   useNavigation,
   useRouteError,
 } from 'react-router'
+import { Button } from '~/components/ui/button'
 import { Toaster } from '~/components/ui/sonner'
 import 'nprogress/nprogress.css'
 import './app.css'
@@ -113,13 +114,14 @@ export function ErrorBoundary() {
             ? error.statusText
             : 'Something went wrong'}
         </p>
-        <button
+        <Button
+          type="button"
+          variant="default"
           onClick={() => navigate('/')}
-          className="inline-flex h-11 items-center justify-center rounded-[10px] px-5 text-sm font-semibold text-white transition-colors"
-          style={{ background: 'var(--color-primary)' }}
+          className="h-11 px-5 text-sm font-semibold"
         >
           Back to Home
-        </button>
+        </Button>
       </div>
     </div>
   )

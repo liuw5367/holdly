@@ -79,15 +79,14 @@ export function MultiSelect({
           {items.map((item) => {
             const isSelected = selected.includes(item.value)
             return (
-              <button
+              <Button
                 key={item.value}
                 type="button"
+                variant="ghost"
+                size="default"
                 onClick={() => onToggle(item.value)}
-                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-[14px] transition-colors hover:opacity-80"
-                style={{
-                  background: isSelected ? 'var(--color-primary-muted)' : 'transparent',
-                  color: isSelected ? 'var(--color-primary)' : 'var(--color-ink)',
-                }}
+                className={`h-auto w-full justify-start gap-2 rounded-lg px-3 py-2 text-left text-[14px] hover:opacity-80 ${isSelected ? 'bg-[var(--color-primary-muted)] text-[var(--color-primary)]' : 'text-[var(--color-ink)]'}`}
+                aria-pressed={isSelected}
               >
                 <span
                   className="flex h-4 w-4 items-center justify-center rounded border"
@@ -105,7 +104,7 @@ export function MultiSelect({
                   />
                 )}
                 <span className="flex-1">{item.label}</span>
-              </button>
+              </Button>
             )
           })}
         </div>

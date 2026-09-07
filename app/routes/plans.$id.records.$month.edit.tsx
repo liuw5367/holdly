@@ -471,7 +471,7 @@ export default function PlansRecordsMonthEdit() {
                             disabled={!editable}
                           />
                           {editable && (
-                            <Button type="button" variant="ghost" size="icon-sm" onClick={() => removeItem(item.id)} className="shrink-0">
+                            <Button type="button" variant="ghost" size="icon-sm" onClick={() => removeItem(item.id)} className="shrink-0" aria-label={`删除${item.name || '收支'}项目`}>
                               <IconTrash size={14} />
                             </Button>
                           )}

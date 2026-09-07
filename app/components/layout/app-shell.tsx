@@ -6,6 +6,7 @@ import {
   IconSettings,
 } from '@tabler/icons-react'
 import { data, NavLink, Outlet, redirect, useLocation } from 'react-router'
+import { isNavItemActive } from '~/components/layout/nav-item'
 import { createSupabaseServerClient } from '~/lib/supabase.server'
 
 export async function loader({ request }: Route.LoaderArgs) {
@@ -26,12 +27,6 @@ const navItems = [
   { to: '/plans', label: '计划', icon: IconFileText },
   { to: '/settings', label: '设置', icon: IconSettings },
 ]
-
-function isNavItemActive(to: string, pathname: string) {
-  if (to === '/assets')
-    return pathname === '/assets' || pathname.startsWith('/assets/') || pathname.startsWith('/subscriptions')
-  return pathname === to || pathname.startsWith(`${to}/`)
-}
 
 export default function AppShell() {
   const location = useLocation()

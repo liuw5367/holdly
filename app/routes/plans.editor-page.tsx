@@ -246,14 +246,17 @@ export function PlanEditorPage({
                   {member.displayName}
                 </span>
                 {canManageMembers && member.role !== 'owner' && (
-                  <button
+                  <Button
                     type="button"
-                    className="text-xs font-medium"
+                    variant="link"
+                    size="sm"
+                    className="h-auto p-0 text-xs font-medium"
                     style={{ color: 'var(--color-primary)' }}
+                    aria-label={`移除成员${member.displayName}`}
                     onClick={() => setDeleteMemberId(member.userId)}
                   >
                     移除
-                  </button>
+                  </Button>
                 )}
                 <span className="ml-auto text-xs" style={{ color: 'var(--color-muted)' }}>
                   {member.role === 'owner' ? '所有者' : '编辑者'}
@@ -344,7 +347,7 @@ export function PlanEditorPage({
                 {item.itemType === 'income' ? '收入' : '支出'}
               </span>
               <span className="text-sm" style={{ color: 'var(--color-ink)' }}>{item.name}</span>
-              <Button type="button" variant="ghost" size="icon-sm" className="ml-auto" onClick={() => removeDefaultItem(item.id)}>
+              <Button type="button" variant="ghost" size="icon-sm" className="ml-auto" aria-label={`删除默认项目${item.name}`} onClick={() => removeDefaultItem(item.id)}>
                 <IconTrash size={14} />
               </Button>
             </div>
@@ -369,7 +372,7 @@ export function PlanEditorPage({
               placeholder="项目名称"
               className="h-10 flex-1"
             />
-            <Button type="button" variant="ghost" size="icon-sm" onClick={addDefaultItem}>
+            <Button type="button" variant="ghost" size="icon-sm" aria-label="添加默认项目" onClick={addDefaultItem}>
               <IconPlus size={16} />
             </Button>
           </div>
