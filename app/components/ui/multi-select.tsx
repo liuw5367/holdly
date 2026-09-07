@@ -1,6 +1,7 @@
 import { IconCheck, IconChevronDown, IconX } from '@tabler/icons-react'
 import { useState } from 'react'
 import { Badge } from '~/components/ui/badge'
+import { Button } from '~/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '~/components/ui/popover'
 
 interface MultiSelectItem {
@@ -28,17 +29,11 @@ export function MultiSelect({
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger
-        className="flex min-h-10 w-full items-center justify-between rounded-md border px-3 py-2 text-sm"
-        style={{
-          borderColor: 'var(--color-hairline)',
-          background: 'var(--color-canvas)',
-        }}
-      >
-        <div className="flex flex-1 flex-wrap gap-1">
+      <div className="flex min-h-11 w-full items-center gap-2 rounded-[10px] border border-[var(--color-hairline)] bg-[var(--color-canvas)] px-3 py-2 text-[15px] transition-colors focus-within:ring-2 focus-within:ring-[var(--color-primary-muted)]">
+        <div className="flex min-w-0 flex-1 flex-wrap gap-1">
           {selectedItems.length === 0
             ? (
-                <span style={{ color: 'var(--color-muted)' }}>{placeholder}</span>
+                <span className="text-[var(--color-muted)]">{placeholder}</span>
               )
             : (
                 selectedItems.map(item => (
@@ -51,23 +46,31 @@ export function MultiSelect({
                     }}
                   >
                     {item.label}
-                    <button
+                    <Button
                       type="button"
-                      className="ml-1 inline-flex"
+                      variant="ghost"
+                      size="icon-xs"
+                      aria-label={`移除${item.label}`}
+                      className="ml-1 inline-flex size-4 items-center justify-center rounded-full transition-colors hover:bg-black/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]"
                       onClick={(e) => {
                         e.stopPropagation()
                         onToggle(item.value)
                       }}
                       style={{ color: item.color || 'var(--color-muted)' }}
                     >
-                      <IconX size={12} />
-                    </button>
+                      <IconX className="size-3" />
+                    </Button>
                   </Badge>
                 ))
               )}
         </div>
-        <IconChevronDown size={14} className="ml-2 shrink-0" style={{ color: 'var(--color-muted)' }} />
-      </PopoverTrigger>
+        <PopoverTrigger
+          aria-label="选择标签"
+          render={<Button type="button" variant="ghost" size="icon-sm" className="size-7 shrink-0 text-[var(--color-muted)]" />}
+        >
+          <IconChevronDown className="size-3.5" />
+        </PopoverTrigger>
+      </div>
       <PopoverContent className="w-72 p-1" align="start">
         <div className="max-h-[240px] overflow-y-auto">
           {items.map((item) => {

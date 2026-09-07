@@ -45,7 +45,6 @@ function DatePicker({
           <Button
             type="button"
             variant="outline"
-            style={{ border: '1px solid var(--color-hairline)', background: 'var(--color-canvas)' }}
             className={cn(
               'appearance-none h-11 w-full justify-between border border-solid border-[var(--color-hairline)] bg-[var(--color-canvas)] px-3 text-left text-[15px] font-normal hover:bg-[var(--color-surface-soft)]',
               !value && 'text-[var(--color-muted-soft)]',

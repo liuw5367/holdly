@@ -91,26 +91,9 @@
   --color-destructive-foreground: #ffffff;
 }
 
-button {
-  font-family: inherit;
-  cursor: pointer;
-}
-
-input,
-select,
-textarea {
-  font-family: inherit;
-  font-size: inherit;
-}
-
 img {
   display: block;
   max-width: 100%;
-}
-
-ul,
-ol {
-  list-style: none;
 }
 
 /* NProgress - thin top bar */
@@ -151,5 +134,22 @@ ol {
     min-height: 100dvh;
     -webkit-font-smoothing: antialiased;
     overflow-x: hidden;
+  }
+
+  button {
+    font-family: inherit;
+    cursor: pointer;
+  }
+
+  input,
+  select,
+  textarea {
+    font-family: inherit;
+    font-size: inherit;
+  }
+
+  ul,
+  ol {
+    list-style: none;
   }
 }

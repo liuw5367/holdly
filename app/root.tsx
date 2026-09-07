@@ -56,8 +56,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <body>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
           {children}
+          <Toaster position="top-center" richColors />
         </ThemeProvider>
-        <Toaster position="top-center" richColors />
         <ScrollRestoration />
         <Scripts />
       </body>

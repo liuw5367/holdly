@@ -34,10 +34,10 @@ function Calendar({
       className={cn('relative bg-[var(--color-canvas)] p-3', className)}
       classNames={{
         months: 'flex flex-col gap-3 sm:flex-row',
-        month: 'space-y-3',
+        month: 'flex flex-col gap-3',
         month_caption: 'relative flex items-center justify-center pt-1',
         dropdowns: 'flex items-center justify-center gap-1.5',
-        dropdown_root: 'relative rounded-md border border-[var(--color-hairline)] bg-[var(--color-canvas)]',
+        dropdown_root: 'relative rounded-md border border-[var(--color-hairline)] bg-[var(--color-canvas)] transition-colors focus-within:ring-2 focus-within:ring-[var(--color-primary-muted)]',
         dropdown: 'absolute inset-0 cursor-pointer opacity-0',
         caption_label: 'flex h-7 items-center gap-1 px-2 text-sm font-medium text-[var(--color-ink)]',
         nav: 'pointer-events-none absolute inset-x-3 top-4 z-10 flex items-center justify-between',
@@ -59,8 +59,8 @@ function Calendar({
           buttonVariants({ variant: 'ghost', size: 'icon-sm' }),
           'h-9 w-9 rounded-md p-0 font-normal text-[var(--color-ink)] hover:bg-[var(--color-surface-soft)]',
         ),
-        selected: 'bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-active)]',
-        today: 'bg-[var(--color-primary-muted)] text-[var(--color-primary)]',
+        selected: '[&>button]:bg-[var(--color-primary)] [&>button]:text-white [&>button:hover]:bg-[var(--color-primary-active)]',
+        today: '[&:not([data-selected])>button]:bg-[var(--color-primary-muted)] [&:not([data-selected])>button]:text-[var(--color-primary)]',
         outside: 'text-[var(--color-muted-soft)] opacity-60',
         disabled: 'opacity-35',
         hidden: 'invisible',
