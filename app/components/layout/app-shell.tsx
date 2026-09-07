@@ -27,6 +27,12 @@ const navItems = [
   { to: '/settings', label: '设置', icon: IconSettings },
 ]
 
+function isNavItemActive(to: string, pathname: string) {
+  if (to === '/assets')
+    return pathname === '/assets' || pathname.startsWith('/assets/') || pathname.startsWith('/subscriptions')
+  return pathname === to || pathname.startsWith(`${to}/`)
+}
+
 export default function AppShell() {
   const location = useLocation()
 
@@ -47,26 +53,25 @@ export default function AppShell() {
           Holdly
         </div>
 
-        {navItems.map(item => (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            end={item.to === '/assets' || item.to === '/plans' || item.to === '/settings'}
-            className={({ isActive }) =>
-              `flex h-11 items-center gap-2.5 rounded-md px-3 text-[15px] transition-colors ${
-                isActive
-                  ? 'font-medium'
-                  : ''
-              }`}
-            style={({ isActive }) => ({
-              color: isActive ? 'var(--color-primary)' : 'var(--color-body)',
-              background: isActive ? 'var(--color-primary-muted)' : 'transparent',
-            })}
-          >
-            <item.icon size={18} />
-            {item.label}
-          </NavLink>
-        ))}
+        {navItems.map((item) => {
+          const isActive = isNavItemActive(item.to, location.pathname)
+          return (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              end
+              aria-current={isActive ? 'page' : undefined}
+              className={`flex h-11 items-center gap-2.5 rounded-md px-3 text-[15px] transition-colors ${isActive ? 'font-medium' : ''}`}
+              style={{
+                color: isActive ? 'var(--color-primary)' : 'var(--color-body)',
+                background: isActive ? 'var(--color-primary-muted)' : 'transparent',
+              }}
+            >
+              <item.icon size={18} />
+              {item.label}
+            </NavLink>
+          )
+        })}
       </nav>
 
       {/* Main Content */}
@@ -105,10 +110,11 @@ function TabItem({
   icon: React.ComponentType<{ size?: number }>
   locationPath: string
 }) {
-  const isActive = locationPath.startsWith(to)
+  const isActive = isNavItemActive(to, locationPath)
   return (
     <NavLink
       to={to}
+      aria-current={isActive ? 'page' : undefined}
       className="flex min-w-[48px] flex-col items-center gap-0.5 px-2 py-1 text-[10px] transition-colors"
       style={{ color: isActive ? 'var(--color-primary)' : 'var(--color-muted)' }}
     >

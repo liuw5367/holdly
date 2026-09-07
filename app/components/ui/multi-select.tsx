@@ -15,6 +15,7 @@ interface MultiSelectProps {
   selected: string[]
   onToggle: (value: string) => void
   placeholder?: string
+  id?: string
 }
 
 export function MultiSelect({
@@ -22,6 +23,7 @@ export function MultiSelect({
   selected,
   onToggle,
   placeholder = '请选择',
+  id,
 }: MultiSelectProps) {
   const [open, setOpen] = useState(false)
 
@@ -65,6 +67,7 @@ export function MultiSelect({
               )}
         </div>
         <PopoverTrigger
+          id={id}
           aria-label="选择标签"
           render={<Button type="button" variant="ghost" size="icon-sm" className="size-7 shrink-0 text-[var(--color-muted)]" />}
         >

@@ -1,7 +1,7 @@
 import type { Route } from './+types/subscriptions.$id.edit'
 import { IconCheck } from '@tabler/icons-react'
 import { useRef } from 'react'
-import { data, redirect, useActionData, useLoaderData, useSubmit } from 'react-router'
+import { data, redirect, useActionData, useLoaderData, useNavigation, useSubmit } from 'react-router'
 import { AssetForm } from '~/components/asset-form'
 import { SubPageHeader } from '~/components/page-header'
 import {
@@ -100,7 +100,9 @@ export default function SubscriptionsEdit() {
   const { asset, tagIds, categories, tags, paymentTypes, paymentAccounts } = useLoaderData<typeof loader>()
   const actionData = useActionData<typeof action>()
   const submit = useSubmit()
+  const navigation = useNavigation()
   const submitRef = useRef<HTMLButtonElement>(null)
+  const isSubmitting = navigation.state === 'submitting'
 
   return (
     <div>
@@ -109,8 +111,9 @@ export default function SubscriptionsEdit() {
         backLabel="返回"
         title="编辑订阅"
         primaryAction={{
-          label: '保存',
+          label: isSubmitting ? '保存中...' : '保存',
           icon: IconCheck,
+          pending: isSubmitting,
           onClick: () => submitRef.current?.click(),
         }}
       />

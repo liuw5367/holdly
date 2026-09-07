@@ -124,6 +124,7 @@ export default function AssetsTradeIn() {
         primaryAction={{
           label: navigation.state === 'submitting' ? '换新中...' : '换新',
           icon: IconCheck,
+          pending: navigation.state === 'submitting',
           onClick: () => submitRef.current?.click(),
         }}
       />

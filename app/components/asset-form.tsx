@@ -1,6 +1,7 @@
 import type { AssetFormValues } from '~/lib/asset.schema'
 import { IconLoader2 } from '@tabler/icons-react'
-import EmojiPicker from 'emoji-picker-react'
+import EmojiPicker, { Theme } from 'emoji-picker-react'
+import { useTheme } from 'next-themes'
 import { useMemo, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useNavigate, useNavigation } from 'react-router'
@@ -95,6 +96,9 @@ export function AssetForm({
   const navigation = useNavigation()
   const isSubmitting = navigation.state === 'submitting'
   const internalSubmitRef = useRef<HTMLButtonElement>(null)
+  const { resolvedTheme } = useTheme()
+  const formId = `asset-form-${mode}`
+  const fieldId = (name: string) => `${formId}-${name}`
 
   const [selectedPaymentTypeId, setSelectedPaymentTypeId] = useState<string | null>(defaultValues?.paymentTypeId || null)
   const [selectedPaymentAccountId, setSelectedPaymentAccountId] = useState<string | null>(defaultValues?.paymentAccountId || null)
@@ -293,6 +297,8 @@ export function AssetForm({
           }}
           type="submit"
           className="hidden"
+          disabled={isSubmitting}
+          tabIndex={-1}
           aria-hidden="true"
         />
 
@@ -312,6 +318,7 @@ export function AssetForm({
                   setSelectedEmoji(emojiData.emoji)
                   setEmojiOpen(false)
                 }}
+                theme={resolvedTheme === 'dark' ? Theme.DARK : Theme.LIGHT}
                 width={320}
                 height={380}
               />
@@ -321,11 +328,12 @@ export function AssetForm({
 
         <FieldGroup>
           <Field data-invalid={Boolean(fieldError('name')) || undefined}>
-            <FieldLabel>
+            <FieldLabel htmlFor={fieldId('name')}>
               名称
               <RequiredMark />
             </FieldLabel>
             <Input
+              id={fieldId('name')}
               aria-invalid={Boolean(fieldError('name')) || undefined}
               placeholder={isSubscription ? '例：iCloud+' : '例：MacBook Pro'}
               {...register('name')}
@@ -334,7 +342,7 @@ export function AssetForm({
           </Field>
 
           <Field data-invalid={Boolean(fieldError('categoryId')) || undefined}>
-            <FieldLabel>
+            <FieldLabel htmlFor={fieldId('categoryId')}>
               分类
               <RequiredMark />
             </FieldLabel>
@@ -347,7 +355,7 @@ export function AssetForm({
                 }
               }}
             >
-              <SelectTrigger aria-invalid={Boolean(fieldError('categoryId')) || undefined} className="w-full">
+              <SelectTrigger id={fieldId('categoryId')} aria-invalid={Boolean(fieldError('categoryId')) || undefined} className="w-full">
                 <SelectValue placeholder="请选择分类">
                   {value => value ? (categoryLabelById[String(value)] || String(value)) : '请选择分类'}
                 </SelectValue>
@@ -370,11 +378,12 @@ export function AssetForm({
           {!isSubscription && !hideOneTimeFields && (
             <>
               <Field data-invalid={Boolean(fieldError('purchasePrice')) || undefined}>
-                <FieldLabel>
+                <FieldLabel htmlFor={fieldId('purchasePrice')}>
                   {purchasePriceLabel}
                   <RequiredMark />
                 </FieldLabel>
                 <Input
+                  id={fieldId('purchasePrice')}
                   aria-invalid={Boolean(fieldError('purchasePrice')) || undefined}
                   type="number"
                   step="0.01"
@@ -385,8 +394,9 @@ export function AssetForm({
               </Field>
 
               <Field>
-                <FieldLabel>当前估价</FieldLabel>
+                <FieldLabel htmlFor={fieldId('currentValue')}>当前估价</FieldLabel>
                 <Input
+                  id={fieldId('currentValue')}
                   type="number"
                   step="0.01"
                   placeholder="可选，留空默认等于购入价"
@@ -395,8 +405,9 @@ export function AssetForm({
               </Field>
 
               <Field data-invalid={Boolean(fieldError('purchaseReceipt')) || undefined}>
-                <FieldLabel>购买凭证</FieldLabel>
+                <FieldLabel htmlFor={fieldId('purchaseReceipt')}>购买凭证</FieldLabel>
                 <Textarea
+                  id={fieldId('purchaseReceipt')}
                   aria-invalid={Boolean(fieldError('purchaseReceipt')) || undefined}
                   placeholder="可填写订单号、发票说明或 http(s) 链接"
                   className="resize-y"
@@ -410,11 +421,12 @@ export function AssetForm({
           {isSubscription && (
             <>
               <Field data-invalid={Boolean(fieldError('subscriptionPrice')) || undefined}>
-                <FieldLabel>
+                <FieldLabel htmlFor={fieldId('subscriptionPrice')}>
                   订阅金额
                   <RequiredMark />
                 </FieldLabel>
                 <Input
+                  id={fieldId('subscriptionPrice')}
                   aria-invalid={Boolean(fieldError('subscriptionPrice')) || undefined}
                   type="number"
                   inputMode="decimal"
@@ -426,7 +438,7 @@ export function AssetForm({
               </Field>
 
               <Field data-invalid={Boolean(fieldError('billingCycle')) || undefined}>
-                <FieldLabel>
+                <FieldLabel htmlFor={fieldId('billingCycle')}>
                   订阅周期
                   <RequiredMark />
                 </FieldLabel>
@@ -440,7 +452,7 @@ export function AssetForm({
                     }
                   }}
                 >
-                  <SelectTrigger aria-invalid={Boolean(fieldError('billingCycle')) || undefined} className="w-full">
+                  <SelectTrigger id={fieldId('billingCycle')} aria-invalid={Boolean(fieldError('billingCycle')) || undefined} className="w-full">
                     <SelectValue placeholder="请选择周期">
                       {(value) => {
                         if (!value)
@@ -469,12 +481,13 @@ export function AssetForm({
           )}
 
           <Field data-invalid={Boolean(fieldError('purchaseDate')) || undefined}>
-            <FieldLabel>
+            <FieldLabel htmlFor={fieldId('purchaseDate')}>
               {isSubscription ? '订阅日期' : '购入日期'}
               <RequiredMark />
             </FieldLabel>
             <input type="hidden" {...register('purchaseDate')} value={selectedPurchaseDate} />
             <DatePicker
+              id={fieldId('purchaseDate')}
               value={selectedPurchaseDate}
               onChange={(v) => {
                 setSelectedPurchaseDate(v)
@@ -488,8 +501,8 @@ export function AssetForm({
 
           {isSubscription && (
             <Field>
-              <FieldLabel>下次续费日期（自动计算）</FieldLabel>
-              <Input readOnly value={nextRenewalPreview || '请先选择订阅日期和周期'} />
+              <FieldLabel htmlFor={fieldId('nextRenewalDate')}>下次续费日期（自动计算）</FieldLabel>
+              <Input id={fieldId('nextRenewalDate')} readOnly value={nextRenewalPreview || '请先选择订阅日期和周期'} />
             </Field>
           )}
 
@@ -497,7 +510,7 @@ export function AssetForm({
 
           <div className="grid grid-cols-2 gap-2">
             <Field>
-              <FieldLabel>支付类型</FieldLabel>
+              <FieldLabel htmlFor={fieldId('paymentTypeId')}>支付类型</FieldLabel>
               <Select
                 value={selectedPaymentTypeId}
                 onValueChange={(v: string | null) => {
@@ -508,7 +521,7 @@ export function AssetForm({
                   setValue('paymentAccountId', '')
                 }}
               >
-                <SelectTrigger className="w-full">
+                <SelectTrigger id={fieldId('paymentTypeId')} className="w-full">
                   <SelectValue placeholder="可选">
                     {value => value ? (paymentTypeLabelById[String(value)] || String(value)) : '可选'}
                   </SelectValue>
@@ -524,7 +537,7 @@ export function AssetForm({
             </Field>
 
             <Field>
-              <FieldLabel>支付方式</FieldLabel>
+              <FieldLabel htmlFor={fieldId('paymentAccountId')}>支付方式</FieldLabel>
               <Select
                 value={selectedPaymentAccountId}
                 onValueChange={(v: string | null) => {
@@ -533,7 +546,7 @@ export function AssetForm({
                   setValue('paymentAccountId', val || '')
                 }}
               >
-                <SelectTrigger className="w-full">
+                <SelectTrigger id={fieldId('paymentAccountId')} className="w-full">
                   <SelectValue placeholder="可选">
                     {value => value ? (paymentAccountLabelById[String(value)] || String(value)) : '可选'}
                   </SelectValue>
@@ -550,8 +563,9 @@ export function AssetForm({
           </div>
 
           <Field>
-            <FieldLabel>标签</FieldLabel>
+            <FieldLabel htmlFor={fieldId('tagIds')}>标签</FieldLabel>
             <MultiSelect
+              id={fieldId('tagIds')}
               items={tags.map(tag => ({ value: tag.id, label: tag.name, color: tag.color }))}
               selected={selectedTags}
               onToggle={toggleTag}
@@ -560,8 +574,9 @@ export function AssetForm({
           </Field>
 
           <Field>
-            <FieldLabel>备注</FieldLabel>
+            <FieldLabel htmlFor={fieldId('notes')}>备注</FieldLabel>
             <Textarea
+              id={fieldId('notes')}
               className="resize-y"
               placeholder="可选备注..."
               {...register('notes')}
@@ -572,7 +587,7 @@ export function AssetForm({
         <Button
           type="submit"
           disabled={isSubmitting}
-          className="sticky bottom-4 mt-6 mb-6 flex w-full items-center justify-center gap-2 text-[15px] font-semibold"
+          className="sticky bottom-[calc(var(--tab-bar-height)+1rem)] mt-6 mb-6 flex w-full items-center justify-center gap-2 text-[15px] font-semibold md:bottom-4"
           onClick={(e) => {
             const invalid = validateBeforeSubmit()
             if (invalid.length > 0) {

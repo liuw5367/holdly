@@ -14,6 +14,7 @@ const calendarEndMonth = new Date(new Date().getFullYear() + 100, 11)
 
 interface DatePickerProps {
   value?: string
+  id?: string
   onChange: (value: string) => void
   placeholder?: string
   className?: string
@@ -22,6 +23,7 @@ interface DatePickerProps {
 
 function DatePicker({
   value,
+  id,
   onChange,
   placeholder = '选择日期',
   className,
@@ -43,6 +45,7 @@ function DatePicker({
         className={cn(disabled && 'opacity-50')}
         render={(
           <Button
+            id={id}
             type="button"
             variant="outline"
             className={cn(

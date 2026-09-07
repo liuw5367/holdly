@@ -240,6 +240,7 @@ export default function Login() {
             <input type="hidden" name="intent" value="password" />
             <div>
               <label
+                htmlFor="login-email"
                 style={{
                   display: 'block',
                   fontSize: 12,
@@ -251,6 +252,7 @@ export default function Login() {
                 邮箱
               </label>
               <input
+                id="login-email"
                 name="email"
                 type="email"
                 placeholder="your@email.com"
@@ -279,6 +281,7 @@ export default function Login() {
             </div>
             <div>
               <label
+                htmlFor="login-password"
                 style={{
                   display: 'block',
                   fontSize: 12,
@@ -291,6 +294,7 @@ export default function Login() {
               </label>
               <div style={{ position: 'relative' }}>
                 <input
+                  id="login-password"
                   name="password"
                   type={showPassword ? 'text' : 'password'}
                   placeholder="••••••••"
@@ -319,6 +323,8 @@ export default function Login() {
                 />
                 <button
                   type="button"
+                  aria-label={showPassword ? '隐藏密码' : '显示密码'}
+                  aria-pressed={showPassword}
                   onClick={() => setShowPassword(!showPassword)}
                   style={{
                     position: 'absolute',

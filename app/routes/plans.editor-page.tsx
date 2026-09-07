@@ -1,6 +1,7 @@
 import type { PlanEditorLoaderData } from './plans.shared'
 import { IconCheck, IconPlus, IconTrash } from '@tabler/icons-react'
-import EmojiPicker from 'emoji-picker-react'
+import EmojiPicker, { Theme } from 'emoji-picker-react'
+import { useTheme } from 'next-themes'
 import { useMemo, useState } from 'react'
 import { SubPageHeader } from '~/components/page-header'
 import { PlanInvitePanel } from '~/components/plan-invite-panel'
@@ -96,6 +97,7 @@ export function PlanEditorPage({
   const [newItemType, setNewItemType] = useState<'income' | 'expense'>('income')
   const [historyFile, setHistoryFile] = useState<File | null>(null)
   const [deleteMemberId, setDeleteMemberId] = useState<string | null>(null)
+  const { resolvedTheme } = useTheme()
 
   const inviteLink = actionData?.inviteLink ?? data.inviteLink
   const inviteExpiresAt = actionData?.inviteExpiresAt ?? data.inviteExpiresAt
@@ -161,6 +163,7 @@ export function PlanEditorPage({
         primaryAction={{
           label: isSaving ? '保存中...' : '保存',
           icon: IconCheck,
+          pending: isSaving,
           onClick: () => onSubmitSave(payload),
         }}
       />
@@ -169,9 +172,11 @@ export function PlanEditorPage({
         <Popover open={emojiOpen} onOpenChange={setEmojiOpen}>
           <PopoverTrigger
             render={(
-              <button
+              <Button
                 type="button"
-                className="flex h-16 w-16 items-center justify-center rounded-2xl border text-3xl transition-shadow hover:shadow-md"
+                variant="outline"
+                size="icon-lg"
+                className="size-16 rounded-2xl border text-3xl transition-shadow hover:shadow-md"
                 style={{ background: 'var(--color-surface-card)', borderColor: 'var(--color-hairline)' }}
               />
             )}
@@ -184,6 +189,7 @@ export function PlanEditorPage({
                 setEmoji(emojiData.emoji)
                 setEmojiOpen(false)
               }}
+              theme={resolvedTheme === 'dark' ? Theme.DARK : Theme.LIGHT}
               lazyLoadEmojis
               skinTonesDisabled
               width={320}

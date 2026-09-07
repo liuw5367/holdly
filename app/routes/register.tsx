@@ -98,32 +98,32 @@ export default function Register() {
             <p style={{ fontSize: 14, color: 'var(--color-muted)', marginTop: 8 }}>
               请在邮箱里点击确认链接。回来后会自动进入 Holdly，并提示注册成功。
             </p>
-            <Link to="/login">
-              <button
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  height: 44,
-                  padding: '12px 20px',
-                  width: '100%',
-                  marginTop: 16,
-                  background: 'var(--color-primary)',
-                  color: '#fff',
-                  fontSize: 15,
-                  fontWeight: 600,
-                  borderRadius: 10,
-                  border: 'none',
-                  cursor: 'pointer',
-                  transition: 'background 0.15s, transform 0.1s',
-                }}
-                onMouseEnter={e => (e.currentTarget.style.background = 'var(--color-primary-active)')}
-                onMouseLeave={e => (e.currentTarget.style.background = 'var(--color-primary)')}
-                onMouseDown={e => (e.currentTarget.style.transform = 'scale(0.98)')}
-                onMouseUp={e => (e.currentTarget.style.transform = 'scale(1)')}
-              >
-                返回登录
-              </button>
+            <Link
+              to="/login"
+              aria-label="返回登录"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                height: 44,
+                padding: '12px 20px',
+                width: '100%',
+                marginTop: 16,
+                background: 'var(--color-primary)',
+                color: '#fff',
+                fontSize: 15,
+                fontWeight: 600,
+                borderRadius: 10,
+                border: 'none',
+                cursor: 'pointer',
+                transition: 'background 0.15s, transform 0.1s',
+              }}
+              onMouseEnter={e => (e.currentTarget.style.background = 'var(--color-primary-active)')}
+              onMouseLeave={e => (e.currentTarget.style.background = 'var(--color-primary)')}
+              onMouseDown={e => (e.currentTarget.style.transform = 'scale(0.98)')}
+              onMouseUp={e => (e.currentTarget.style.transform = 'scale(1)')}
+            >
+              返回登录
             </Link>
           </div>
         </div>
@@ -224,6 +224,7 @@ export default function Register() {
             {/* 昵称 */}
             <div>
               <label
+                htmlFor="register-display-name"
                 style={{
                   display: 'block',
                   fontSize: 12,
@@ -235,6 +236,7 @@ export default function Register() {
                 昵称
               </label>
               <input
+                id="register-display-name"
                 name="displayName"
                 type="text"
                 placeholder="例：王六"
@@ -266,6 +268,7 @@ export default function Register() {
             {/* 邮箱 */}
             <div>
               <label
+                htmlFor="register-email"
                 style={{
                   display: 'block',
                   fontSize: 12,
@@ -277,6 +280,7 @@ export default function Register() {
                 邮箱
               </label>
               <input
+                id="register-email"
                 name="email"
                 type="email"
                 placeholder="your@email.com"
@@ -307,6 +311,7 @@ export default function Register() {
             {/* 密码 */}
             <div>
               <label
+                htmlFor="register-password"
                 style={{
                   display: 'block',
                   fontSize: 12,
@@ -319,6 +324,7 @@ export default function Register() {
               </label>
               <div style={{ position: 'relative' }}>
                 <input
+                  id="register-password"
                   name="password"
                   type={showPassword ? 'text' : 'password'}
                   placeholder="至少 8 位"
@@ -347,6 +353,8 @@ export default function Register() {
                 />
                 <button
                   type="button"
+                  aria-label={showPassword ? '隐藏密码' : '显示密码'}
+                  aria-pressed={showPassword}
                   onClick={() => setShowPassword(!showPassword)}
                   style={{
                     position: 'absolute',
@@ -376,6 +384,7 @@ export default function Register() {
             {/* 确认密码 */}
             <div>
               <label
+                htmlFor="register-confirm-password"
                 style={{
                   display: 'block',
                   fontSize: 12,
@@ -387,6 +396,7 @@ export default function Register() {
                 确认密码
               </label>
               <input
+                id="register-confirm-password"
                 name="confirmPassword"
                 type="password"
                 placeholder="再次输入密码"
@@ -451,11 +461,11 @@ export default function Register() {
           <p style={{ fontSize: 12, color: 'var(--color-muted)', marginTop: 12, textAlign: 'center' }}>
             注册即表示同意
             {' '}
-            <a href="#" style={{ color: 'var(--color-primary)' }}>服务条款</a>
+            <span style={{ color: 'var(--color-muted)' }}>服务条款</span>
             {' '}
             和
             {' '}
-            <a href="#" style={{ color: 'var(--color-primary)' }}>隐私政策</a>
+            <span style={{ color: 'var(--color-muted)' }}>隐私政策</span>
           </p>
 
           {/* Footer */}

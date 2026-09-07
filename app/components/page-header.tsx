@@ -1,6 +1,6 @@
 import type { TablerIcon } from '@tabler/icons-react'
 import type { ReactNode } from 'react'
-import { IconArrowLeft, IconDots } from '@tabler/icons-react'
+import { IconArrowLeft, IconDots, IconLoader2 } from '@tabler/icons-react'
 import { Link } from 'react-router'
 import { Button } from '~/components/ui/button'
 import {
@@ -17,6 +17,9 @@ interface SubPageAction {
   icon?: TablerIcon
   onClick?: () => void
   to?: string
+  pending?: boolean
+  disabled?: boolean
+  ariaLabel?: string
 }
 
 interface MoreMenuItem {
@@ -60,6 +63,7 @@ export function SubPageHeader({
             ? (
                 <Link
                   to={primaryAction.to}
+                  aria-label={primaryAction.ariaLabel || primaryAction.label}
                   className="flex items-center gap-1 text-[14px] font-medium"
                   style={{ color: 'var(--color-primary)' }}
                 >
@@ -68,21 +72,27 @@ export function SubPageHeader({
                 </Link>
               )
             : (
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
+                  size="sm"
                   onClick={primaryAction.onClick}
-                  className="flex items-center gap-1 text-[14px] font-medium"
+                  aria-label={primaryAction.ariaLabel || primaryAction.label}
+                  disabled={primaryAction.disabled || primaryAction.pending}
+                  className="h-9 gap-1 px-2 text-[14px] font-medium"
                   style={{ color: 'var(--color-primary)' }}
                 >
-                  {primaryAction.icon && <primaryAction.icon size={14} />}
+                  {primaryAction.pending
+                    ? <IconLoader2 size={14} className="animate-spin" aria-hidden="true" />
+                    : primaryAction.icon && <primaryAction.icon size={14} aria-hidden="true" />}
                   {primaryAction.label}
-                </button>
+                </Button>
               )
         )}
         {moreItems && moreItems.length > 0 && (
           <DropdownMenu>
-            <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" className="text-[16px] tracking-wider" />}>
-              <IconDots size={18} />
+            <DropdownMenuTrigger aria-label="更多操作" render={<Button variant="ghost" size="icon-sm" className="text-[16px] tracking-wider" />}>
+              <IconDots size={18} aria-hidden="true" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="min-w-[140px]">
               {moreItems.map(item => (

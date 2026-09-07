@@ -358,6 +358,7 @@ export default function PlansRecordsMonthEdit() {
         primaryAction={{
           label: isSubmitting ? '保存中...' : '保存',
           icon: IconCheck,
+          pending: isSubmitting,
           onClick: handleSave,
         }}
       />

@@ -68,32 +68,32 @@ export default function ForgotPassword() {
             <p style={{ fontSize: 14, color: 'var(--color-muted)', marginTop: 8 }}>
               请查看你的邮箱，点击链接重置密码。
             </p>
-            <Link to="/login">
-              <button
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  height: 44,
-                  padding: '12px 20px',
-                  width: '100%',
-                  marginTop: 16,
-                  background: 'var(--color-primary)',
-                  color: '#fff',
-                  fontSize: 15,
-                  fontWeight: 600,
-                  borderRadius: 10,
-                  border: 'none',
-                  cursor: 'pointer',
-                  transition: 'background 0.15s, transform 0.1s',
-                }}
-                onMouseEnter={e => (e.currentTarget.style.background = 'var(--color-primary-active)')}
-                onMouseLeave={e => (e.currentTarget.style.background = 'var(--color-primary)')}
-                onMouseDown={e => (e.currentTarget.style.transform = 'scale(0.98)')}
-                onMouseUp={e => (e.currentTarget.style.transform = 'scale(1)')}
-              >
-                返回登录
-              </button>
+            <Link
+              to="/login"
+              aria-label="返回登录"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                height: 44,
+                padding: '12px 20px',
+                width: '100%',
+                marginTop: 16,
+                background: 'var(--color-primary)',
+                color: '#fff',
+                fontSize: 15,
+                fontWeight: 600,
+                borderRadius: 10,
+                border: 'none',
+                cursor: 'pointer',
+                transition: 'background 0.15s, transform 0.1s',
+              }}
+              onMouseEnter={e => (e.currentTarget.style.background = 'var(--color-primary-active)')}
+              onMouseLeave={e => (e.currentTarget.style.background = 'var(--color-primary)')}
+              onMouseDown={e => (e.currentTarget.style.transform = 'scale(0.98)')}
+              onMouseUp={e => (e.currentTarget.style.transform = 'scale(1)')}
+            >
+              返回登录
             </Link>
           </div>
         </div>
@@ -162,6 +162,7 @@ export default function ForgotPassword() {
           <fetcher.Form method="post" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             <div>
               <label
+                htmlFor="forgot-password-email"
                 style={{
                   display: 'block',
                   fontSize: 12,
@@ -173,6 +174,7 @@ export default function ForgotPassword() {
                 注册邮箱
               </label>
               <input
+                id="forgot-password-email"
                 name="email"
                 type="email"
                 placeholder="your@email.com"
