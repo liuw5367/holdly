@@ -10,6 +10,7 @@ import {
 } from '@tabler/icons-react'
 import { useMemo, useState } from 'react'
 import { data, Link, redirect, useFetcher, useLoaderData, useNavigate, useSearchParams } from 'react-router'
+import { EmptyState } from '~/components/empty-state'
 import { SubPageHeader } from '~/components/page-header'
 import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '~/components/ui/alert-dialog'
 import { Badge } from '~/components/ui/badge'
@@ -155,7 +156,7 @@ export default function PaymentAccountsPage() {
                       </span>
                       <span className="min-w-0 flex-1">
                         <span className="flex flex-wrap items-center gap-2">
-                          <span className="truncate text-sm font-medium" style={{ color: 'var(--color-ink)' }}>
+                          <span className="min-w-0 truncate text-sm font-medium" style={{ color: 'var(--color-ink)' }}>
                             {isCreditCard && account.bankName ? `${account.bankName} · ` : ''}
                             {account.name}
                           </span>
@@ -165,13 +166,13 @@ export default function PaymentAccountsPage() {
                             </Badge>
                           )}
                         </span>
-                        <span className="mt-1 block text-xs text-muted-foreground">
+                        <span className="mt-1 block break-words text-xs text-muted-foreground">
                           {isCreditCard
                             ? `${account.lastFour ? `尾号 ${account.lastFour}` : '未填写尾号'} · ${account.currencyCode}${account.creditLimit ? ` · 额度 ${formatInteger(account.creditLimit)}` : ''}`
                             : typeNameMap.get(account.paymentTypeId) || '未分类'}
                         </span>
                         {isCreditCard && (
-                          <span className="mt-2 block text-xs tabular-nums text-muted-foreground">
+                          <span className="mt-2 block break-words text-xs tabular-nums text-muted-foreground">
                             {dates
                               ? `下次出账 ${dates.statementDate.slice(5)} · 还款 ${dates.repaymentDate.slice(5)}`
                               : '账单日期未设置'}
@@ -204,13 +205,12 @@ export default function PaymentAccountsPage() {
             </div>
           )
         : (
-            <div className="rounded-2xl px-5 py-10 text-center" style={{ backgroundColor: 'var(--color-surface-card)' }}>
-              <IconWallet className="mx-auto text-muted-foreground" size={28} />
-              <p className="mt-3 text-sm font-medium" style={{ color: 'var(--color-ink)' }}>
-                {paymentAccounts.length === 0 ? '还没有支付账户' : '该类型下还没有账户'}
-              </p>
-              <p className="mt-1 text-xs text-muted-foreground">添加后可在资产和订阅中选择使用。</p>
-            </div>
+            <EmptyState
+              emoji="💳"
+              title={paymentAccounts.length === 0 ? '还没有支付账户' : '该类型下还没有账户'}
+              description="添加后可在资产和订阅中选择使用。"
+              actions={paymentAccounts.length === 0 ? [{ label: '+ 添加账户', to: `/settings/payment-accounts/new${newAccountQuery}` }] : undefined}
+            />
           )}
 
       <AlertDialog open={Boolean(deleteTarget) && !deleteCompleted} onOpenChange={open => !open && setDeleteTarget(null)}>

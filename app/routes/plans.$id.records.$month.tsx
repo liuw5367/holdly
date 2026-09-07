@@ -122,20 +122,20 @@ export default function PlansRecordsMonth() {
         {data.record.createdAt ? new Date(data.record.createdAt).toLocaleDateString('zh-CN') : '--'}
       </div>
 
-      <div className="mb-6 flex gap-3">
-        <div className="flex-[1_1_auto] rounded-xl border p-3" style={{ background: 'var(--color-surface-card)', borderColor: 'var(--color-hairline)' }}>
+      <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <div className="min-w-0 rounded-xl border p-3" style={{ background: 'var(--color-surface-card)', borderColor: 'var(--color-hairline)' }}>
           <div className="mb-1 text-xs" style={{ color: 'var(--color-muted)' }}>收入</div>
           <div className="font-[family-name:var(--font-mono)] text-lg font-semibold" style={{ color: 'var(--color-success)' }}>
             {data.record.totalIncome.toLocaleString()}
           </div>
         </div>
-        <div className="flex-[1_1_auto] rounded-xl border p-3" style={{ background: 'var(--color-surface-card)', borderColor: 'var(--color-hairline)' }}>
+        <div className="min-w-0 rounded-xl border p-3" style={{ background: 'var(--color-surface-card)', borderColor: 'var(--color-hairline)' }}>
           <div className="mb-1 text-xs" style={{ color: 'var(--color-muted)' }}>支出</div>
           <div className="font-[family-name:var(--font-mono)] text-lg font-semibold" style={{ color: 'var(--color-error)' }}>
             {data.record.totalExpense.toLocaleString()}
           </div>
         </div>
-        <div className="flex-[1_1_auto] rounded-xl border p-3" style={{ background: 'var(--color-surface-card)', borderColor: 'var(--color-hairline)' }}>
+        <div className="min-w-0 rounded-xl border p-3" style={{ background: 'var(--color-surface-card)', borderColor: 'var(--color-hairline)' }}>
           <div className="mb-1 text-xs" style={{ color: 'var(--color-muted)' }}>净收入</div>
           <div className="font-[family-name:var(--font-mono)] text-lg font-semibold" style={{ color: data.record.netIncome >= 0 ? 'var(--color-success)' : 'var(--color-error)' }}>
             {data.record.netIncome.toLocaleString()}
@@ -161,7 +161,7 @@ export default function PlansRecordsMonth() {
                       />
                       <span className="truncate text-sm font-medium" style={{ color: 'var(--color-ink)' }}>{group.member.displayName}</span>
                     </div>
-                    <div className="whitespace-nowrap font-[family-name:var(--font-mono)] text-xs tabular-nums" style={{ color: 'var(--color-muted)' }}>
+                    <div className="min-w-0 break-words font-[family-name:var(--font-mono)] text-xs tabular-nums sm:whitespace-nowrap" style={{ color: 'var(--color-muted)' }}>
                       收入
                       {' '}
                       {group.totalIncome.toLocaleString()}

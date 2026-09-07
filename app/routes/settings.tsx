@@ -3,12 +3,13 @@ import {
   IconCheck,
   IconChevronRight,
   IconDeviceDesktop,
+  IconLoader2,
   IconMoon,
   IconPencil,
   IconSun,
   IconX,
 } from '@tabler/icons-react'
-import EmojiPicker from 'emoji-picker-react'
+import EmojiPicker, { Theme } from 'emoji-picker-react'
 import { useTheme } from 'next-themes'
 import { useEffect, useState } from 'react'
 import { data, Link, redirect, useFetcher, useLoaderData } from 'react-router'
@@ -102,8 +103,10 @@ export default function SettingsPage() {
   const [editingDisplayName, setEditingDisplayName] = useState(false)
   const [emojiOpen, setEmojiOpen] = useState(false)
   const [mounted, setMounted] = useState(false)
-  const { theme, setTheme } = useTheme()
+  const { theme, resolvedTheme, setTheme } = useTheme()
+  const isProfileSubmitting = profileFetcher.state !== 'idle'
 
+  /* eslint-disable react/set-state-in-effect -- close edit mode only after the profile action succeeds. */
   useEffect(() => {
     setDisplayName(profile.displayName)
     setAvatarEmoji(profile.avatarEmoji)
@@ -115,9 +118,16 @@ export default function SettingsPage() {
   }, [])
 
   useEffect(() => {
-    if (profileFetcher.data && !profileFetcher.data.ok)
+    if (!profileFetcher.data)
+      return
+    if (!profileFetcher.data.ok) {
       toast.error(profileFetcher.data.error)
+      return
+    }
+    if (profileFetcher.data.intent === 'update_profile')
+      setEditingDisplayName(false)
   }, [profileFetcher.data])
+  /* eslint-enable react/set-state-in-effect */
 
   const currentTheme: 'system' | 'light' | 'dark'
     = theme === 'light' || theme === 'dark' || theme === 'system'
@@ -147,7 +157,7 @@ export default function SettingsPage() {
 
         <div className="flex items-start gap-3">
           <Popover open={emojiOpen} onOpenChange={setEmojiOpen}>
-            <PopoverTrigger render={<Button size="icon-lg" variant="secondary" className="h-14 w-14 shrink-0 rounded-full p-0" />}>
+            <PopoverTrigger render={<Button size="icon-lg" variant="secondary" className="h-14 w-14 shrink-0 rounded-full p-0" aria-label="选择头像" />}>
               <PublicAvatar
                 emoji={avatarEmoji}
                 nickname={displayName || profile.displayName}
@@ -170,6 +180,7 @@ export default function SettingsPage() {
                 skinTonesDisabled
                 width={320}
                 height={360}
+                theme={resolvedTheme === 'dark' ? Theme.DARK : Theme.LIGHT}
               />
             </PopoverContent>
           </Popover>
@@ -189,7 +200,7 @@ export default function SettingsPage() {
                         />
                       )
                     : (
-                        <p className="flex-1">
+                        <p className="min-w-0 flex-1 break-words">
                           {displayName}
                         </p>
                       )}
@@ -201,19 +212,22 @@ export default function SettingsPage() {
                             size="icon-sm"
                             variant="ghost"
                             style={{ color: 'var(--color-primary)' }}
+                            disabled={isProfileSubmitting}
+                            aria-label="保存资料"
                             onClick={() => {
-                              setEditingDisplayName(false)
                               const safeDisplayName = displayName.trim() || profile.displayName
                               submitProfile(safeDisplayName, avatarEmoji)
                             }}
                           >
-                            <IconCheck />
+                            {isProfileSubmitting ? <IconLoader2 className="animate-spin" /> : <IconCheck />}
                           </Button>
                           <Button
                             type="button"
                             size="icon-sm"
                             variant="ghost"
                             style={{ color: 'var(--color-primary)' }}
+                            disabled={isProfileSubmitting}
+                            aria-label="取消编辑昵称"
                             onClick={() => {
                               setDisplayName(profile.displayName)
                               setEditingDisplayName(false)
@@ -229,6 +243,7 @@ export default function SettingsPage() {
                           size="icon-sm"
                           variant="ghost"
                           style={{ color: 'var(--color-primary)' }}
+                          aria-label="编辑昵称"
                           onClick={() => setEditingDisplayName(true)}
                         >
                           <IconPencil size={18} />
@@ -237,7 +252,7 @@ export default function SettingsPage() {
                 </div>
               </FieldContent>
             </Field>
-            <p className="mt-1 text-sm" style={{ color: 'var(--color-muted-soft)' }}>
+            <p className="mt-1 break-all text-sm" style={{ color: 'var(--color-muted-soft)' }}>
               {profile.email}
             </p>
             {profileFetcher.data && !profileFetcher.data.ok && (
@@ -335,18 +350,7 @@ export default function SettingsPage() {
                   type="button"
                   onClick={() => setTheme(m.key)}
                   variant="ghost"
-                  className="h-10 flex-1 gap-1.5 rounded-lg"
-                  style={{
-                    backgroundColor: isActive
-                      ? 'var(--color-surface-card)'
-                      : 'transparent',
-                    color: isActive
-                      ? 'var(--color-ink)'
-                      : 'var(--color-muted-soft)',
-                    boxShadow: isActive
-                      ? '0 1px 3px rgba(0,0,0,0.08)'
-                      : 'none',
-                  }}
+                  className={`h-10 flex-1 gap-1.5 rounded-lg ${isActive ? 'bg-[var(--color-surface-card)] text-[var(--color-ink)] ring-1 ring-[var(--color-hairline)]' : 'text-[var(--color-muted-soft)]'}`}
                 >
                   <Icon size={16} />
                   {m.label}

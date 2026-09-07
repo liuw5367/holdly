@@ -247,10 +247,13 @@ export default function AssetsIndex() {
               })
 
               return (
-                <button
+                <Button
                   key={asset.id}
+                  type="button"
+                  variant="ghost"
+                  size="default"
                   onClick={() => navigate(getAssetDetailPath(asset))}
-                  className="flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-left transition-colors hover:opacity-85"
+                  className="h-auto w-full justify-start gap-3 rounded-xl border px-4 py-3 text-left hover:opacity-85"
                   style={{ background: 'var(--color-surface-card)', borderColor: 'var(--color-hairline)' }}
                 >
                   <span
@@ -260,10 +263,10 @@ export default function AssetsIndex() {
                     {asset.emoji}
                   </span>
 
-                  <div className="min-w-0 flex-1 ">
-                    <div className="flex justify-between">
-                      <div className="flex items-center gap-3">
-                        <span className="truncate text-[14px] font-medium" style={{ color: 'var(--color-ink)' }}>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex min-w-0 items-center justify-between gap-3">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <span className="truncate text-[14px] font-medium" title={asset.name} style={{ color: 'var(--color-ink)' }}>
                           {asset.name}
                         </span>
                         {isEnded && (
@@ -271,21 +274,21 @@ export default function AssetsIndex() {
                         )}
                       </div>
 
-                      <div className="shrink-0 text-right text-[14px] font-medium" style={{ color: 'var(--color-ink)' }}>
+                      <div className="shrink-0 whitespace-nowrap text-right text-[14px] font-medium tabular-nums" style={{ color: 'var(--color-ink)' }}>
                         {asset.dailyCost > 0 ? `${asset.dailyCost.toFixed(2)}/天` : '—'}
                       </div>
                     </div>
 
                     <div className="mt-0.5">
-                      <div className="flex justify-between">
-                        <div className="truncate text-[12px]" style={{ color: 'var(--color-muted)' }}>
+                      <div className="flex min-w-0 items-center justify-between gap-3">
+                        <div className="min-w-0 truncate text-[12px]" title={`${asset.categoryName || '未分类'}${tagsText ? ` · ${tagsText}` : ''}`} style={{ color: 'var(--color-muted)' }}>
                           {asset.assetType === 'subscription' ? '订阅' : '买断'}
                           {' · '}
                           {asset.categoryName || '未分类'}
                           {tagsText ? ` · ${tagsText}` : ''}
                         </div>
 
-                        <div className="text-[12px]" style={{ color: 'var(--color-muted-soft)' }}>
+                        <div className="shrink-0 whitespace-nowrap text-[12px] tabular-nums" style={{ color: 'var(--color-muted-soft)' }}>
                           {(asset.purchasePrice || asset.subscriptionPrice)
                             ? `¥${Number(asset.purchasePrice || asset.subscriptionPrice).toLocaleString('zh-CN')}`
                             : '—'}
@@ -296,7 +299,7 @@ export default function AssetsIndex() {
                     </div>
                   </div>
 
-                </button>
+                </Button>
               )
             })
           : assets.length === 0

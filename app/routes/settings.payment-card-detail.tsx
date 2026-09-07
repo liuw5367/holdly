@@ -3,6 +3,7 @@ import { IconCreditCard, IconLoader2, IconPencil, IconPlayerPlay, IconPlayerStop
 import currency from 'currency.js'
 import { useState } from 'react'
 import { data, Link, redirect, useLoaderData, useNavigation, useSearchParams, useSubmit } from 'react-router'
+import { EmptyState } from '~/components/empty-state'
 import { SubPageHeader } from '~/components/page-header'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '~/components/ui/alert-dialog'
 import { Badge } from '~/components/ui/badge'
@@ -53,6 +54,7 @@ export default function PaymentCardDetail() {
   const { account, subscriptions, dates, today } = useLoaderData<typeof loader>()
   const submit = useSubmit()
   const navigation = useNavigation()
+  const isSubmitting = navigation.state !== 'idle'
   const [searchParams] = useSearchParams()
   const [confirmOpen, setConfirmOpen] = useState(false)
   const returnType = searchParams.get('returnType')
@@ -82,12 +84,13 @@ export default function PaymentCardDetail() {
       <SubPageHeader backTo={backTo} title="信用卡资料" primaryAction={{ label: '编辑', icon: IconPencil, to: `/settings/payment-accounts/${account.id}/edit${returnSuffix}` }} />
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
+          <CardTitle className="flex min-w-0 items-center gap-2 break-words">
             <IconCreditCard />
-            {account.bankName}
-            {' '}
-            ·
-            {account.name}
+            <span className="min-w-0 break-words">
+              {account.bankName}
+              {' · '}
+              {account.name}
+            </span>
           </CardTitle>
           <CardDescription>
             {account.lastFour ? `尾号 ${account.lastFour}` : '未填写尾号'}
@@ -120,7 +123,7 @@ export default function PaymentCardDetail() {
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
           {subscriptions.map(item => (
-            <Link key={item.id} to={`/subscriptions/${item.id}`} className="flex items-center justify-between gap-3 rounded-lg bg-muted/50 p-3">
+            <Link key={item.id} to={`/subscriptions/${item.id}`} className="flex min-w-0 items-center justify-between gap-3 rounded-lg bg-[var(--color-surface-soft)] p-3">
               <span className="min-w-0 truncate">
                 {item.emoji}
                 {' '}
@@ -132,7 +135,9 @@ export default function PaymentCardDetail() {
               </span>
             </Link>
           ))}
-          {subscriptions.length === 0 && <p className="text-sm text-muted-foreground">还没有订阅使用这张信用卡。</p>}
+          {subscriptions.length === 0 && (
+            <EmptyState emoji="🔗" title="还没有关联订阅" description="创建订阅时可以选择这张信用卡。" />
+          )}
         </CardContent>
       </Card>
 
@@ -152,14 +157,14 @@ export default function PaymentCardDetail() {
           个活动订阅已更换支付账户。
         </p>
       )}
-      <Button className="mt-3 w-full" variant={account.isActive ? 'destructive' : 'secondary'} onClick={() => account.isActive ? setConfirmOpen(true) : toggleActive()} disabled={navigation.state !== 'idle'}>
-        {navigation.state !== 'idle'
+      <Button className="mt-3 w-full" variant={account.isActive ? 'destructive' : 'secondary'} onClick={() => account.isActive ? setConfirmOpen(true) : toggleActive()} disabled={isSubmitting}>
+        {isSubmitting
           ? <IconLoader2 className="animate-spin" data-icon="inline-start" />
           : account.isActive ? <IconPlayerStop data-icon="inline-start" /> : <IconPlayerPlay data-icon="inline-start" />}
-        {navigation.state !== 'idle' ? '保存中' : account.isActive ? '停用信用卡' : '恢复使用'}
+        {isSubmitting ? '保存中' : account.isActive ? '停用信用卡' : '恢复使用'}
       </Button>
 
-      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+      <AlertDialog open={confirmOpen} onOpenChange={open => !isSubmitting && setConfirmOpen(open)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>停用这张信用卡？</AlertDialogTitle>
@@ -171,7 +176,10 @@ export default function PaymentCardDetail() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel variant="secondary">取消</AlertDialogCancel>
-            <AlertDialogAction variant="destructive" onClick={toggleActive}>确认停用</AlertDialogAction>
+            <AlertDialogAction variant="destructive" onClick={toggleActive} disabled={isSubmitting}>
+              {isSubmitting && <IconLoader2 className="animate-spin" data-icon="inline-start" />}
+              {isSubmitting ? '保存中' : '确认停用'}
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

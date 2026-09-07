@@ -1,5 +1,5 @@
 import type { Route } from './+types/assets.$id'
-import { IconBell, IconCheck, IconCoin, IconLoader2, IconPencil, IconRefresh, IconShieldCheck, IconTools, IconTrash, IconTrendingUp, IconX } from '@tabler/icons-react'
+import { IconBell, IconCheck, IconCoin, IconLoader2, IconPencil, IconRefresh, IconShieldCheck, IconTool, IconTrash, IconTrendingUp, IconX } from '@tabler/icons-react'
 import currency from 'currency.js'
 import React, { useEffect, useMemo, useState } from 'react'
 import { data, redirect, useActionData, useLoaderData, useNavigate, useNavigation, useSubmit } from 'react-router'
@@ -478,7 +478,7 @@ export default function AssetDetailPage() {
     {
       label: '资产状态',
       value: (
-        <Badge variant="secondary" className={assetStatus === '持有中' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}>
+        <Badge variant="secondary" className={assetStatus === '持有中' ? 'bg-success/15 text-success' : 'bg-error/15 text-error'}>
           {assetStatus}
         </Badge>
       ),
@@ -501,13 +501,15 @@ export default function AssetDetailPage() {
     statusRows.push({
       label: '换新资产',
       value: (
-        <button
+        <Button
           type="button"
-          className="font-medium text-primary"
+          variant="link"
+          size="sm"
+          className="h-auto max-w-full whitespace-normal p-0 font-medium"
           onClick={() => navigate(getAssetDetailPath(tradeToAsset))}
         >
           {tradeToAsset.name}
-        </button>
+        </Button>
       ),
     })
     if (tradeToAsset.purchasePrice)
@@ -537,13 +539,15 @@ export default function AssetDetailPage() {
     statusRows.push({
       label: '回收资产',
       value: (
-        <button
+        <Button
           type="button"
-          className="font-medium text-primary"
+          variant="link"
+          size="sm"
+          className="h-auto max-w-full whitespace-normal p-0 font-medium"
           onClick={() => navigate(getAssetDetailPath(tradedFromAsset))}
         >
           {tradedFromAsset.name}
-        </button>
+        </Button>
       ),
     })
     if (tradedFromAsset.tradeInPrice)
@@ -572,7 +576,7 @@ export default function AssetDetailPage() {
 
       <div className="py-3 text-center">
         <div className="mx-auto mb-2 flex h-14 w-14 items-center justify-center rounded-xl bg-[var(--color-surface-soft)] text-[30px]">{asset.emoji}</div>
-        <div className="text-[20px] font-semibold" style={{ color: 'var(--color-ink)' }}>{asset.name}</div>
+        <div className="break-words text-[20px] font-semibold" style={{ color: 'var(--color-ink)' }}>{asset.name}</div>
         {assetTags.length > 0 && (
           <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
             {assetTags.map(tag => (
@@ -625,9 +629,17 @@ export default function AssetDetailPage() {
               <LineChart data={[...valueRecords].reverse()} margin={{ top: 12, right: 8, bottom: 0, left: 0 }}>
                 <CartesianGrid vertical={false} />
                 <XAxis dataKey="valuedOn" tickLine={false} axisLine={false} tickMargin={8} minTickGap={24} />
-                <YAxis width="auto" tickLine={false} axisLine={false} tickMargin={8} tickFormatter={value => formatInteger(value)} domain={['dataMin', 'dataMax']} />
+                <YAxis
+                  width={56}
+                  tickLine={false}
+                  axisLine={false}
+                  tickMargin={8}
+                  tickFormatter={value => formatInteger(value)}
+                  domain={['dataMin', 'dataMax']}
+                  label={{ value: '估值（元）', angle: -90, position: 'insideLeft', offset: 4, style: { fill: 'var(--color-muted)', fontSize: 11 } }}
+                />
                 <ChartTooltip content={<ChartTooltipContent labelKey="valuedOn" />} />
-                <Line dataKey="value" type="monotone" stroke="var(--color-value)" strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 4 }} />
+                <Line dataKey="value" type="monotone" stroke="var(--color-primary)" strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 4 }} />
               </LineChart>
             </ChartContainer>
           )}
@@ -640,7 +652,7 @@ export default function AssetDetailPage() {
                   {({ manual: '手动估值', market: '市场参考', professional: '专业估值', baseline: '历史基线' })[record.source]}
                   {record.notes ? ` · ${record.notes}` : ''}
                 </div>
-                <Button type="button" size="icon-xs" variant="ghost" className="size-7 self-end justify-self-end text-muted-foreground" aria-label="删除估值记录" onClick={() => setDeletingValueRecordId(record.id)}>
+                <Button type="button" size="icon-xs" variant="ghost" className="size-7 self-end justify-self-end text-[var(--color-muted-soft)] hover:text-error" disabled={isSubmitting} aria-label="删除估值记录" onClick={() => setDeletingValueRecordId(record.id)}>
                   <IconX className="size-3" stroke={1.5} />
                 </Button>
               </div>
@@ -673,7 +685,7 @@ export default function AssetDetailPage() {
           <DetailRow
             label="状态"
             value={(
-              <Badge variant="secondary" className={warrantyStatus === '保修中' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}>
+              <Badge variant="secondary" className={warrantyStatus === '保修中' ? 'bg-success/15 text-success' : 'bg-error/15 text-error'}>
                 {warrantyStatus}
               </Badge>
             )}
@@ -707,9 +719,9 @@ export default function AssetDetailPage() {
           title="维修信息"
           className="mt-3"
           action={(
-            <button type="button" className="cursor-pointer" onClick={handleOpenAddRepair}>
+            <Button type="button" variant="ghost" size="sm" className="h-8 px-2 text-[12px]" onClick={handleOpenAddRepair}>
               添加维修
-            </button>
+            </Button>
           )}
         >
           {repairRecords.map((record, index) => (
@@ -718,7 +730,7 @@ export default function AssetDetailPage() {
                 <div className="min-w-0 flex-1">
                   <div className="mb-1 flex items-center gap-2">
                     <span className="text-[13px]" style={{ color: 'var(--color-muted)' }}>{record.repairDate}</span>
-                    <Badge variant="secondary" className={record.isDone ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}>
+                    <Badge variant="secondary" className={record.isDone ? 'bg-success/15 text-success' : 'bg-warning/15 text-warning'}>
                       {record.isDone ? '已完成' : '处理中'}
                     </Badge>
                   </div>
@@ -825,7 +837,7 @@ export default function AssetDetailPage() {
         )}
         {repairRecords.length === 0 && (
           <Button size="sm" className="h-10 text-[13px]" variant="secondary" onClick={handleOpenAddRepair}>
-            <IconTools className="size-3.5" data-icon="inline-start" />
+            <IconTool className="size-3.5" data-icon="inline-start" />
             添加维修
           </Button>
         )}
@@ -855,7 +867,7 @@ export default function AssetDetailPage() {
         </Button>
       </div>
 
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+      <AlertDialog open={deleteDialogOpen} onOpenChange={open => !isSubmitting && setDeleteDialogOpen(open)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>确认删除</AlertDialogTitle>
@@ -870,9 +882,9 @@ export default function AssetDetailPage() {
               <IconX size={14} data-icon="inline-start" />
               取消
             </AlertDialogCancel>
-            <AlertDialogAction className="h-10" variant="destructive" onClick={handleDelete}>
-              <IconTrash size={14} data-icon="inline-start" />
-              删除
+            <AlertDialogAction className="h-10" variant="destructive" onClick={handleDelete} disabled={isSubmitting}>
+              {isSubmitting ? <IconLoader2 size={14} className="animate-spin" /> : <IconTrash size={14} data-icon="inline-start" />}
+              {isSubmitting ? '删除中...' : '删除'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -966,7 +978,7 @@ export default function AssetDetailPage() {
               取消
             </Button>
             <Button className="h-10" variant="default" onClick={handleSaveWarranty} disabled={isSubmitting}>
-              <IconCheck size={14} data-icon="inline-start" />
+              {isSubmitting ? <IconLoader2 size={14} className="animate-spin" /> : <IconCheck size={14} data-icon="inline-start" />}
               保存
             </Button>
           </DialogFooter>
@@ -994,7 +1006,7 @@ export default function AssetDetailPage() {
               取消
             </Button>
             <Button className="h-10" variant="default" onClick={handleSell} disabled={isSubmitting}>
-              <IconCheck size={14} data-icon="inline-start" />
+              {isSubmitting ? <IconLoader2 size={14} className="animate-spin" /> : <IconCheck size={14} data-icon="inline-start" />}
               确认
             </Button>
           </DialogFooter>
@@ -1100,8 +1112,8 @@ function DetailRow({
 }) {
   return (
     <div className={`flex items-center justify-between py-3 ${isLast ? '' : 'border-b'}`} style={{ borderColor: 'var(--color-hairline)' }}>
-      <span className="text-[14px]" style={{ color: 'var(--color-muted)' }}>{label}</span>
-      <span className="text-[15px] font-medium" style={{ color: primary ? 'var(--color-primary)' : 'var(--color-ink)' }}>{value}</span>
+      <span className="shrink-0 text-[14px]" style={{ color: 'var(--color-muted)' }}>{label}</span>
+      <span className="min-w-0 flex-1 break-words text-right text-[15px] font-medium" style={{ color: primary ? 'var(--color-primary)' : 'var(--color-ink)' }}>{value}</span>
     </div>
   )
 }

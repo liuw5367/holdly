@@ -429,7 +429,7 @@ export default function PlansRecordsMonthEdit() {
                   <span className="truncate text-sm font-medium" style={{ color: 'var(--color-ink)' }}>{group.member.displayName}</span>
                   {!editable && <span className="rounded px-1.5 py-0.5 text-[10px]" style={{ color: 'var(--color-muted)', background: 'var(--color-surface-soft)' }}>只读</span>}
                 </div>
-                <div className="whitespace-nowrap font-[family-name:var(--font-mono)] text-xs tabular-nums" style={{ color: 'var(--color-muted)' }}>
+                <div className="min-w-0 break-words font-[family-name:var(--font-mono)] text-xs tabular-nums sm:whitespace-nowrap" style={{ color: 'var(--color-muted)' }}>
                   收入
                   {' '}
                   {group.totalIncome.toLocaleString()}

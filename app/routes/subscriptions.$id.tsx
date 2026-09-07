@@ -1,5 +1,5 @@
 import type { Route } from './+types/subscriptions.$id'
-import { IconBell, IconCheck, IconLoader2, IconPencil, IconPlayerPlay, IconRepeat, IconRepeatOff, IconTrash, IconX } from '@tabler/icons-react'
+import { IconBan, IconBell, IconCheck, IconLoader2, IconPencil, IconPlayerPlay, IconRepeat, IconTrash, IconX } from '@tabler/icons-react'
 import { useEffect, useMemo, useState } from 'react'
 import { data, redirect, useActionData, useFetcher, useLoaderData, useNavigate, useNavigation, useSearchParams, useSubmit } from 'react-router'
 import { toast } from 'sonner'
@@ -340,7 +340,7 @@ export default function SubscriptionDetailPage() {
     {
       label: '订阅状态',
       value: (
-        <Badge variant="secondary" className={ended ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'}>
+        <Badge variant="secondary" className={ended ? 'bg-error/15 text-error' : 'bg-success/15 text-success'}>
           {ended ? '已取消' : '订阅中'}
         </Badge>
       ),
@@ -370,7 +370,7 @@ export default function SubscriptionDetailPage() {
 
       <div className="py-3 text-center">
         <div className="mx-auto mb-2 flex h-14 w-14 items-center justify-center rounded-xl bg-[var(--color-surface-soft)] text-[30px]">{asset.emoji}</div>
-        <div className="text-[20px] font-semibold" style={{ color: 'var(--color-ink)' }}>{asset.name}</div>
+        <div className="break-words text-[20px] font-semibold" style={{ color: 'var(--color-ink)' }}>{asset.name}</div>
         {assetTags.length > 0 && (
           <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
             {assetTags.map(tag => (
@@ -388,7 +388,7 @@ export default function SubscriptionDetailPage() {
 
       <SectionCard title="状态" className="mt-3">
         {statusRows.map((row, index) => (
-          <DetailRow key={`${row.label}-${index}`} label={row.label} value={row.value} primary={row.primary} isLast={index === statusRows.length - 1} />
+          <DetailRow key={row.label} label={row.label} value={row.value} primary={row.primary} isLast={index === statusRows.length - 1} />
         ))}
       </SectionCard>
 
@@ -402,7 +402,7 @@ export default function SubscriptionDetailPage() {
                 {getBillingCycleLabel(renewal.billingCycle)}
                 {renewal.notes ? ` · ${renewal.notes}` : ''}
               </div>
-              <Button type="button" size="icon-xs" variant="ghost" className="size-7 self-end justify-self-end text-muted-foreground" aria-label="删除续费记录" onClick={() => setDeletingRenewalId(renewal.id)}>
+              <Button type="button" size="icon-xs" variant="ghost" className="size-7 self-end justify-self-end text-[var(--color-muted-soft)] hover:text-error" disabled={isDeletingRenewal} aria-label="删除续费记录" onClick={() => setDeletingRenewalId(renewal.id)}>
                 <IconX className="size-3" stroke={1.5} />
               </Button>
             </div>
@@ -436,7 +436,7 @@ export default function SubscriptionDetailPage() {
             )
           : (
               <Button size="sm" className="h-10 text-[13px]" variant="secondary" onClick={() => setCancelDialogOpen(true)}>
-                <IconRepeatOff className="size-3.5" data-icon="inline-start" />
+                <IconBan className="size-3.5" data-icon="inline-start" />
                 取消订阅
               </Button>
             )}
@@ -618,7 +618,7 @@ export default function SubscriptionDetailPage() {
         </DialogContent>
       </Dialog>
 
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+      <AlertDialog open={deleteDialogOpen} onOpenChange={open => !isSubmitting && setDeleteDialogOpen(open)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>确认删除</AlertDialogTitle>
@@ -633,9 +633,9 @@ export default function SubscriptionDetailPage() {
               <IconX size={14} data-icon="inline-start" />
               取消
             </AlertDialogCancel>
-            <AlertDialogAction className="h-10" variant="destructive" onClick={onDelete}>
-              <IconTrash size={14} data-icon="inline-start" />
-              删除
+            <AlertDialogAction className="h-10" variant="destructive" onClick={onDelete} disabled={isSubmitting}>
+              {isSubmitting ? <IconLoader2 size={14} className="animate-spin" /> : <IconTrash size={14} data-icon="inline-start" />}
+              {isSubmitting ? '删除中...' : '删除'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -675,9 +675,9 @@ function DetailRow({
   isLast?: boolean
 }) {
   return (
-    <div className={`flex items-center justify-between py-3 ${isLast ? '' : 'border-b'}`} style={{ borderColor: 'var(--color-hairline)' }}>
-      <span className="text-[14px]" style={{ color: 'var(--color-muted)' }}>{label}</span>
-      <span className="text-[15px] font-medium" style={{ color: primary ? 'var(--color-primary)' : 'var(--color-ink)' }}>{value}</span>
+    <div className={`flex items-start justify-between gap-4 py-3 ${isLast ? '' : 'border-b'}`} style={{ borderColor: 'var(--color-hairline)' }}>
+      <span className="shrink-0 text-[14px]" style={{ color: 'var(--color-muted)' }}>{label}</span>
+      <span className="min-w-0 flex-1 break-words text-right text-[15px] font-medium" style={{ color: primary ? 'var(--color-primary)' : 'var(--color-ink)' }}>{value}</span>
     </div>
   )
 }

@@ -1,3 +1,4 @@
+import { IconCheck, IconCopy, IconLoader2 } from '@tabler/icons-react'
 import { useState } from 'react'
 import { Button } from '~/components/ui/button'
 import {
@@ -28,6 +29,21 @@ export function PlanInvitePanel({
   onRevokeInvite,
 }: PlanInvitePanelProps) {
   const [open, setOpen] = useState(false)
+  const [copyStatus, setCopyStatus] = useState<'idle' | 'success' | 'error'>('idle')
+
+  async function handleCopy() {
+    if (!inviteLink)
+      return
+    try {
+      await navigator.clipboard.writeText(inviteLink)
+      setCopyStatus('success')
+      window.setTimeout(setCopyStatus, 1800, 'idle')
+    }
+    catch {
+      setCopyStatus('error')
+      window.setTimeout(setCopyStatus, 2200, 'idle')
+    }
+  }
 
   return (
     <>
@@ -64,13 +80,16 @@ export function PlanInvitePanel({
                     {inviteExpiresAt ? new Date(inviteExpiresAt).toLocaleString('zh-CN') : '--'}
                   </div>
                   <DialogFooter>
-                    <Button type="button" variant="outline" className="h-8" onClick={async () => await navigator.clipboard.writeText(inviteLink)}>
-                      复制链接
+                    <Button type="button" variant="outline" className="h-8" onClick={handleCopy}>
+                      {copyStatus === 'success' ? <IconCheck size={14} /> : <IconCopy size={14} />}
+                      {copyStatus === 'success' ? '已复制' : copyStatus === 'error' ? '复制失败' : '复制链接'}
                     </Button>
                     <Button type="button" variant="destructive" className="h-8" onClick={onRevokeInvite} disabled={isRevoking}>
+                      {isRevoking ? <IconLoader2 size={14} className="animate-spin" /> : null}
                       {isRevoking ? '吊销中...' : '吊销链接'}
                     </Button>
                     <Button type="button" variant="outline" className="h-8" onClick={onRegenerateInvite} disabled={isRegenerating}>
+                      {isRegenerating ? <IconLoader2 size={14} className="animate-spin" /> : null}
                       {isRegenerating ? '生成中...' : '重新生成'}
                     </Button>
                   </DialogFooter>
@@ -79,6 +98,7 @@ export function PlanInvitePanel({
             : (
                 <DialogFooter>
                   <Button type="button" className="h-9" onClick={onRegenerateInvite} disabled={isRegenerating}>
+                    {isRegenerating ? <IconLoader2 size={14} className="animate-spin" /> : null}
                     {isRegenerating ? '生成中...' : '生成邀请链接（30天有效）'}
                   </Button>
                 </DialogFooter>

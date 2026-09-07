@@ -7,8 +7,9 @@ import {
   IconTrash,
   IconX,
 } from '@tabler/icons-react'
-import { useMemo, useState } from 'react'
-import { data, Form, redirect, useLoaderData, useNavigation } from 'react-router'
+import { useEffect, useMemo, useState } from 'react'
+import { data, Form, redirect, useActionData, useLoaderData, useNavigation } from 'react-router'
+import { EmptyState } from '~/components/empty-state'
 import { SubPageHeader } from '~/components/page-header'
 import { Button } from '~/components/ui/button'
 import { Input } from '~/components/ui/input'
@@ -78,7 +79,7 @@ function ColorPicker({ value, onChange }: { value: string, onChange: (color: str
     <Popover>
       <PopoverTrigger
         render={(
-          <Button type="button" variant="secondary" size="icon" className="shrink-0" />
+          <Button type="button" variant="secondary" size="icon" className="shrink-0" aria-label="选择标签颜色" />
         )}
       >
         <span className="h-4 w-4 rounded-full" style={{ backgroundColor: value }} />
@@ -100,6 +101,7 @@ function ColorPicker({ value, onChange }: { value: string, onChange: (color: str
 
 export default function TagsPage() {
   const { tags } = useLoaderData<typeof loader>()
+  const actionData = useActionData<typeof action>()
   const navigation = useNavigation()
 
   const [newColor, setNewColor] = useState('#cc785c')
@@ -116,6 +118,29 @@ export default function TagsPage() {
 
   const canSubmitCreate = useMemo(() => newName.trim().length > 0 && !isCreating, [isCreating, newName])
 
+  /* eslint-disable react/set-state-in-effect -- reset controlled fields after a confirmed action succeeds. */
+  function resetCreateForm() {
+    setNewName('')
+    setNewColor('#cc785c')
+  }
+
+  function resetEditForm() {
+    setEditingId(null)
+    setEditName('')
+  }
+  /* eslint-enable react/set-state-in-effect */
+
+  useEffect(() => {
+    if (!actionData?.ok)
+      return
+    if (actionData.intent === 'create') {
+      resetCreateForm()
+    }
+    if (actionData.intent === 'update') {
+      resetEditForm()
+    }
+  }, [actionData])
+
   return (
     <div className="pb-8">
       <SubPageHeader backTo="/settings" backLabel="设置" title="标签管理" />
@@ -124,10 +149,6 @@ export default function TagsPage() {
         method="post"
         className="mb-6 rounded-2xl p-4"
         style={{ backgroundColor: 'var(--color-surface-card)' }}
-        onSubmit={() => {
-          setNewName('')
-          setNewColor('#cc785c')
-        }}
       >
         <input type="hidden" name="intent" value="create" />
         <input type="hidden" name="color" value={newColor} />
@@ -151,6 +172,13 @@ export default function TagsPage() {
         className="overflow-hidden rounded-2xl"
         style={{ backgroundColor: 'var(--color-surface-card)' }}
       >
+        {tags.length === 0 && (
+          <EmptyState
+            emoji="🏷️"
+            title="还没有标签"
+            description="创建标签后可以跨分类筛选资产"
+          />
+        )}
         {tags.map((item, i) => (
           <div
             key={item.id}
@@ -175,10 +203,6 @@ export default function TagsPage() {
                     <Form
                       method="post"
                       className="flex items-center"
-                      onSubmit={() => {
-                        setEditingId(null)
-                        setEditName('')
-                      }}
                     >
                       <input type="hidden" name="intent" value="update" />
                       <input type="hidden" name="id" value={item.id} />
@@ -190,6 +214,7 @@ export default function TagsPage() {
                         variant="ghost"
                         disabled={!editName.trim() || isUpdatingCurrent(item.id)}
                         style={{ color: 'var(--color-primary)' }}
+                        aria-label={`保存标签${item.name}`}
                       >
                         {isUpdatingCurrent(item.id) ? <IconLoader2 className="animate-spin" /> : <IconCheck />}
                       </Button>
@@ -199,6 +224,7 @@ export default function TagsPage() {
                       size="icon-sm"
                       variant="ghost"
                       style={{ color: 'var(--color-primary)' }}
+                      aria-label="取消编辑标签"
                       onClick={() => setEditingId(null)}
                     >
                       <IconX />
@@ -234,6 +260,7 @@ export default function TagsPage() {
                         size="icon-sm"
                         variant="ghost"
                         style={{ color: 'var(--color-primary)' }}
+                        aria-label={`编辑标签${item.name}`}
                         onClick={() => {
                           setEditingId(item.id)
                           setEditName(item.name)
@@ -251,6 +278,7 @@ export default function TagsPage() {
                           variant="ghost"
                           disabled={isDeletingCurrent(item.id)}
                           style={{ color: 'var(--color-error)' }}
+                          aria-label={`删除标签${item.name}`}
                         >
                           {isDeletingCurrent(item.id) ? <IconLoader2 className="animate-spin" /> : <IconTrash />}
                         </Button>

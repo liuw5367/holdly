@@ -46,22 +46,24 @@ export default function PlansIndex() {
                   borderColor: 'var(--color-hairline)',
                 }}
               >
-                <span
-                  className="absolute top-3 right-3 rounded-md px-2 py-0.5 text-[11px] font-medium"
-                  style={{
-                    background: 'var(--color-primary-muted)',
-                    color: 'var(--color-primary)',
-                  }}
-                >
-                  {plan.planMode === 'snapshot' ? '总额记录' : '收支累加'}
-                </span>
-                <div className="mb-3 flex items-center gap-2.5">
-                  <span className="text-2xl">{plan.emoji}</span>
+                <div className="mb-3 flex min-w-0 items-start justify-between gap-3">
+                  <div className="flex min-w-0 items-center gap-2.5">
+                    <span className="text-2xl">{plan.emoji}</span>
+                    <span
+                      className="min-w-0 truncate text-[15px] font-medium"
+                      style={{ color: 'var(--color-ink)' }}
+                    >
+                      {plan.name}
+                    </span>
+                  </div>
                   <span
-                    className="text-[15px] font-medium"
-                    style={{ color: 'var(--color-ink)' }}
+                    className="shrink-0 rounded-md px-2 py-0.5 text-[11px] font-medium"
+                    style={{
+                      background: 'var(--color-primary-muted)',
+                      color: 'var(--color-primary)',
+                    }}
                   >
-                    {plan.name}
+                    {plan.planMode === 'snapshot' ? '总额记录' : '收支累加'}
                   </span>
                 </div>
 

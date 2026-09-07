@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router'
+import { Button } from '~/components/ui/button'
 
 interface EmptyStateAction {
   label: string
@@ -29,8 +30,9 @@ export function EmptyState({ emoji, title, description, actions }: EmptyStatePro
       {actions && actions.length > 0 && (
         <div className="flex gap-3">
           {actions.map(action => (
-            <button
+            <Button
               key={action.label}
+              type="button"
               onClick={() => {
                 if (action.onClick) {
                   action.onClick()
@@ -39,14 +41,10 @@ export function EmptyState({ emoji, title, description, actions }: EmptyStatePro
                   navigate(action.to)
                 }
               }}
-              className="rounded-lg px-4 py-2 text-sm font-medium"
-              style={{
-                background: 'var(--color-primary)',
-                color: '#fff',
-              }}
+              className="h-9 px-4 text-sm"
             >
               {action.label}
-            </button>
+            </Button>
           ))}
         </div>
       )}

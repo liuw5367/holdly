@@ -7,9 +7,11 @@ import {
   IconTrash,
   IconX,
 } from '@tabler/icons-react'
-import EmojiPicker from 'emoji-picker-react'
-import { useMemo, useState } from 'react'
-import { data, Form, redirect, useLoaderData, useNavigation } from 'react-router'
+import EmojiPicker, { Theme } from 'emoji-picker-react'
+import { useTheme } from 'next-themes'
+import { useEffect, useMemo, useState } from 'react'
+import { data, Form, redirect, useActionData, useLoaderData, useNavigation } from 'react-router'
+import { EmptyState } from '~/components/empty-state'
 import { SubPageHeader } from '~/components/page-header'
 import { Badge } from '~/components/ui/badge'
 import { Button } from '~/components/ui/button'
@@ -77,7 +79,9 @@ export async function action({ request }: Route.ActionArgs) {
 
 export default function CategoriesPage() {
   const { categories } = useLoaderData<typeof loader>()
+  const actionData = useActionData<typeof action>()
   const navigation = useNavigation()
+  const { resolvedTheme } = useTheme()
 
   const [newEmoji, setNewEmoji] = useState('📦')
   const [newName, setNewName] = useState('')
@@ -96,6 +100,29 @@ export default function CategoriesPage() {
 
   const canSubmitCreate = useMemo(() => newName.trim().length > 0 && !isCreating, [isCreating, newName])
 
+  /* eslint-disable react/set-state-in-effect -- reset controlled fields after a confirmed action succeeds. */
+  function resetCreateForm() {
+    setNewName('')
+    setNewEmoji('📦')
+  }
+
+  function resetEditForm() {
+    setEditingId(null)
+    setEditName('')
+  }
+  /* eslint-enable react/set-state-in-effect */
+
+  useEffect(() => {
+    if (!actionData?.ok)
+      return
+    if (actionData.intent === 'create') {
+      resetCreateForm()
+    }
+    if (actionData.intent === 'update') {
+      resetEditForm()
+    }
+  }, [actionData])
+
   return (
     <div className="pb-8">
       <SubPageHeader backTo="/settings" backLabel="设置" title="分类管理" />
@@ -104,16 +131,12 @@ export default function CategoriesPage() {
         method="post"
         className="mb-6 rounded-2xl p-4"
         style={{ backgroundColor: 'var(--color-surface-card)' }}
-        onSubmit={() => {
-          setNewName('')
-          setNewEmoji('📦')
-        }}
       >
         <input type="hidden" name="intent" value="create" />
         <input type="hidden" name="emoji" value={newEmoji} />
         <div className="flex items-center gap-3">
           <Popover open={emojiOpen} onOpenChange={setEmojiOpen}>
-            <PopoverTrigger render={<Button type="button" variant="secondary" size="icon" className="text-xl" />}>
+            <PopoverTrigger render={<Button type="button" variant="secondary" size="icon" className="text-xl" aria-label="选择分类图标" />}>
               {newEmoji}
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0" side="bottom" align="start">
@@ -126,6 +149,7 @@ export default function CategoriesPage() {
                 skinTonesDisabled
                 width={320}
                 height={360}
+                theme={resolvedTheme === 'dark' ? Theme.DARK : Theme.LIGHT}
               />
             </PopoverContent>
           </Popover>
@@ -147,6 +171,13 @@ export default function CategoriesPage() {
         className="overflow-hidden rounded-2xl"
         style={{ backgroundColor: 'var(--color-surface-card)' }}
       >
+        {categories.length === 0 && (
+          <EmptyState
+            emoji="🗂️"
+            title="还没有分类"
+            description="创建分类后可以更方便地整理资产"
+          />
+        )}
         {categories.map((item, i) => (
           <div
             key={item.id}
@@ -162,7 +193,7 @@ export default function CategoriesPage() {
               ? (
                   <>
                     <Popover open={editEmojiOpen} onOpenChange={setEditEmojiOpen}>
-                      <PopoverTrigger render={<Button type="button" variant="secondary" size="icon" className="text-lg shrink-0" />}>
+                      <PopoverTrigger render={<Button type="button" variant="secondary" size="icon" className="text-lg shrink-0" aria-label="修改分类图标" />}>
                         {editEmoji}
                       </PopoverTrigger>
                       <PopoverContent className="w-auto p-0" side="bottom" align="start">
@@ -175,6 +206,7 @@ export default function CategoriesPage() {
                           skinTonesDisabled
                           width={320}
                           height={360}
+                          theme={resolvedTheme === 'dark' ? Theme.DARK : Theme.LIGHT}
                         />
                       </PopoverContent>
                     </Popover>
@@ -191,10 +223,6 @@ export default function CategoriesPage() {
                     <Form
                       method="post"
                       className="flex items-center"
-                      onSubmit={() => {
-                        setEditingId(null)
-                        setEditName('')
-                      }}
                     >
                       <input type="hidden" name="intent" value="update" />
                       <input type="hidden" name="id" value={item.id} />
@@ -206,6 +234,7 @@ export default function CategoriesPage() {
                         variant="ghost"
                         disabled={!editName.trim() || isUpdatingCurrent(item.id)}
                         style={{ color: 'var(--color-primary)' }}
+                        aria-label={`保存分类${item.name}`}
                       >
                         {isUpdatingCurrent(item.id) ? <IconLoader2 className="animate-spin" /> : <IconCheck />}
                       </Button>
@@ -215,6 +244,7 @@ export default function CategoriesPage() {
                       size="icon-sm"
                       variant="ghost"
                       style={{ color: 'var(--color-primary)' }}
+                      aria-label="取消编辑分类"
                       onClick={() => setEditingId(null)}
                     >
                       <IconX />
@@ -237,6 +267,7 @@ export default function CategoriesPage() {
                         size="icon-sm"
                         variant="ghost"
                         style={{ color: 'var(--color-primary)' }}
+                        aria-label={`编辑分类${item.name}`}
                         onClick={() => {
                           setEditingId(item.id)
                           setEditName(item.name)
@@ -254,6 +285,7 @@ export default function CategoriesPage() {
                           variant="ghost"
                           disabled={isDeletingCurrent(item.id)}
                           style={{ color: 'var(--color-error)' }}
+                          aria-label={`删除分类${item.name}`}
                         >
                           {isDeletingCurrent(item.id) ? <IconLoader2 className="animate-spin" /> : <IconTrash />}
                         </Button>

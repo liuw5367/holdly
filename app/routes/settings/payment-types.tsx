@@ -9,6 +9,7 @@ import {
 } from '@tabler/icons-react'
 import { useMemo, useState } from 'react'
 import { data, Form, redirect, useActionData, useLoaderData, useNavigation } from 'react-router'
+import { EmptyState } from '~/components/empty-state'
 import { SubPageHeader } from '~/components/page-header'
 import { Badge } from '~/components/ui/badge'
 import { Button } from '~/components/ui/button'
@@ -149,6 +150,13 @@ export default function PaymentTypesPage() {
         className="overflow-hidden rounded-2xl"
         style={{ backgroundColor: 'var(--color-surface-card)' }}
       >
+        {paymentTypes.length === 0 && (
+          <EmptyState
+            emoji="💳"
+            title="还没有支付类型"
+            description="创建支付类型后可以记录资产的付款方式"
+          />
+        )}
         {paymentTypes.map((item, i) => (
           <div
             key={item.id}
@@ -185,6 +193,7 @@ export default function PaymentTypesPage() {
                         variant="ghost"
                         disabled={!editName.trim() || editNameDuplicate || isUpdatingCurrent(item.id)}
                         style={{ color: 'var(--color-primary)' }}
+                        aria-label={`保存支付类型${item.name}`}
                       >
                         {isUpdatingCurrent(item.id) ? <IconLoader2 className="animate-spin" /> : <IconCheck />}
                       </Button>
@@ -194,6 +203,7 @@ export default function PaymentTypesPage() {
                       size="icon-sm"
                       variant="ghost"
                       style={{ color: 'var(--color-primary)' }}
+                      aria-label="取消编辑支付类型"
                       onClick={() => setEditingId(null)}
                     >
                       <IconX />
@@ -216,6 +226,7 @@ export default function PaymentTypesPage() {
                           size="icon-sm"
                           variant="ghost"
                           style={{ color: 'var(--color-primary)' }}
+                          aria-label={`编辑支付类型${item.name}`}
                           onClick={() => {
                             setEditingId(item.id)
                             setEditName(item.name)
@@ -232,6 +243,7 @@ export default function PaymentTypesPage() {
                             variant="ghost"
                             disabled={isDeletingCurrent(item.id)}
                             style={{ color: 'var(--color-error)' }}
+                            aria-label={`删除支付类型${item.name}`}
                           >
                             {isDeletingCurrent(item.id) ? <IconLoader2 className="animate-spin" /> : <IconTrash />}
                           </Button>

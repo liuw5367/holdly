@@ -6,6 +6,7 @@ import { data as loaderDataFn, redirect, useLoaderData, useNavigate, useSearchPa
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from 'recharts'
 import { toast } from 'sonner'
 import { MainPageHeader } from '~/components/page-header'
+import { Button } from '~/components/ui/button'
 import {
   ChartContainer,
   ChartTooltip,
@@ -132,13 +133,17 @@ export default function Dashboard() {
             {' '}
             {expiring[0].detail}
           </span>
-          <button
+          <Button
+            type="button"
+            size="icon-xs"
+            variant="ghost"
             onClick={() => setShowWarning(false)}
-            className="shrink-0 rounded p-0.5 transition-opacity hover:opacity-70"
+            className="shrink-0"
             style={{ color: 'var(--color-muted)' }}
+            aria-label="关闭到期提醒"
           >
             <IconX size={16} />
-          </button>
+          </Button>
         </div>
       )}
 
@@ -187,28 +192,28 @@ export default function Dashboard() {
             ? (
                 <div className="flex flex-col gap-3">
                   {categorySpending.map(cat => (
-                    <div key={cat.name} className="flex items-center gap-3">
-                      <span className="w-[96px] shrink-0 whitespace-nowrap text-[13px]" style={{ color: 'var(--color-body)' }}>
+                    <div key={cat.name} className="flex min-w-0 items-center gap-3">
+                      <span className="min-w-0 flex-1 truncate text-[13px]" title={cat.name} style={{ color: 'var(--color-body)' }}>
                         {cat.emoji}
                         {' '}
                         {cat.name}
                       </span>
-                      <div className="flex-1">
+                      <div className="min-w-[48px] flex-1">
                         <div
                           className="h-[10px] w-full overflow-hidden rounded-full"
                           style={{ background: 'var(--color-surface-strong)' }}
                         >
                           <div
-                            className="h-full rounded-full transition-all"
+                            className="h-full rounded-full transition-[width] duration-300"
                             style={{ width: `${cat.percent}%`, background: cat.color }}
                           />
                         </div>
                       </div>
-                      <span className="w-[56px] shrink-0 text-right text-[13px]" style={{ color: 'var(--color-body)' }}>
+                      <span className="shrink-0 whitespace-nowrap text-right text-[13px] tabular-nums" style={{ color: 'var(--color-body)' }}>
                         ¥
                         {cat.amount.toLocaleString()}
                       </span>
-                      <span className="w-[36px] shrink-0 text-right text-[12px]" style={{ color: 'var(--color-muted-soft)' }}>
+                      <span className="w-9 shrink-0 text-right text-[12px] tabular-nums" style={{ color: 'var(--color-muted-soft)' }}>
                         {cat.percent}
                         %
                       </span>
@@ -297,10 +302,13 @@ export default function Dashboard() {
             style={{ background: 'var(--color-surface-card)' }}
           >
             {expiring.map((item, i) => (
-              <button
+              <Button
+                type="button"
+                variant="ghost"
+                size="default"
                 key={item.id}
                 onClick={() => navigate(`/assets/${item.id}`)}
-                className={`flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:opacity-80 ${
+                className={`h-auto w-full justify-start rounded-none px-4 py-3 text-left hover:opacity-80 ${
                   i < expiring.length - 1 ? 'border-b' : ''
                 }`}
                 style={{
@@ -321,7 +329,7 @@ export default function Dashboard() {
                       : <IconBellOff size={12} className="shrink-0" style={{ color: 'var(--color-muted-soft)' }} />}
                   </div>
                 </div>
-              </button>
+              </Button>
             ))}
           </div>
         </section>

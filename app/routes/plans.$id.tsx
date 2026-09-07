@@ -208,8 +208,9 @@ export default function PlansDetail() {
   const trendDataKey: TrendMetric = trendMetric === 'netIncome' ? 'netIncome' : 'netValue'
   const inviteLink = actionData && 'inviteLink' in actionData ? actionData.inviteLink : detail.inviteLink
   const inviteExpiresAt = actionData && 'inviteExpiresAt' in actionData ? actionData.inviteExpiresAt : detail.inviteExpiresAt
-  const isInviteSubmitting = navigation.state !== 'idle'
-    && (navigation.formData?.get('intent') === 'regenerate-invite' || navigation.formData?.get('intent') === 'revoke-invite')
+  const inviteIntent = navigation.formData?.get('intent')
+  const isRegeneratingInvite = navigation.state !== 'idle' && inviteIntent === 'regenerate-invite'
+  const isRevokingInvite = navigation.state !== 'idle' && inviteIntent === 'revoke-invite'
 
   function submitIntent(intent: string) {
     const fd = new FormData()
@@ -281,8 +282,8 @@ export default function PlansDetail() {
             <PlanInvitePanel
               inviteLink={inviteLink}
               inviteExpiresAt={inviteExpiresAt}
-              isRegenerating={isInviteSubmitting}
-              isRevoking={isInviteSubmitting}
+              isRegenerating={isRegeneratingInvite}
+              isRevoking={isRevokingInvite}
               onRegenerateInvite={() => submitIntent('regenerate-invite')}
               onRevokeInvite={() => submitIntent('revoke-invite')}
             />
@@ -608,7 +609,7 @@ export default function PlansDetail() {
                   >
                     {record.totalValue.toLocaleString()}
                   </div>
-                  <div className="flex items-end justify-between gap-4">
+                  <div className="flex min-w-0 items-end justify-between gap-4">
                     <div className="flex gap-4 text-xs">
                       <span style={{ color: 'var(--color-success)' }}>
                         收入
@@ -622,35 +623,24 @@ export default function PlansDetail() {
                       </span>
                     </div>
 
-                    <Link
-                      to={`/plans/${detail.id}/records/${monthStr}/edit`}
-                      aria-label="编辑月记录"
-                      title="编辑月记录"
-                      className="flex items-center"
+                    <span
+                      className="min-w-0 truncate text-right text-xs"
+                      style={{ color: 'var(--color-muted)' }}
+                      title={mergedNote || undefined}
                     >
-                      <span
-                        className="min-w-0 truncate text-xs text-right"
-                        style={{ color: 'var(--color-muted)' }}
-                        title={mergedNote || undefined}
-                      >
-                        {mergedNote}
-                      </span>
-
-                      <span className="pl-2">
-                        <IconPencil size={14} />
-                      </span>
-                    </Link>
+                      {mergedNote}
+                    </span>
                   </div>
                 </Link>
-                {/* <Link
+                <Link
                   to={`/plans/${detail.id}/records/${monthStr}/edit`}
-                  className="flex w-12 shrink-0 items-center justify-center border-l transition-colors"
+                  className="flex w-12 shrink-0 items-center justify-center border-l transition-colors hover:bg-[var(--color-surface-soft)]"
                   style={{ color: 'var(--color-primary)', borderColor: 'var(--color-hairline)' }}
                   aria-label="编辑月记录"
                   title="编辑月记录"
                 >
                   <IconPencil size={18} />
-                </Link> */}
+                </Link>
               </div>
             )
           })}
