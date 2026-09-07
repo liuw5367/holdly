@@ -178,6 +178,7 @@ export function PlanEditorPage({
                 size="icon-lg"
                 className="size-16 rounded-2xl border text-3xl transition-shadow hover:shadow-md"
                 style={{ background: 'var(--color-surface-card)', borderColor: 'var(--color-hairline)' }}
+                aria-label="选择计划图标"
               />
             )}
           >

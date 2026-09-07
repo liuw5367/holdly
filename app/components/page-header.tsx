@@ -54,7 +54,7 @@ export function SubPageHeader({
         <IconArrowLeft size={16} />
         {backLabel}
       </Link>
-      <h1 className="absolute left-1/2 -translate-x-1/2 text-[14px] font-medium whitespace-nowrap" style={{ color: 'var(--color-ink)' }}>
+      <h1 className="absolute left-1/2 max-w-[45%] -translate-x-1/2 truncate px-2 text-center text-[14px] font-medium whitespace-nowrap" style={{ color: 'var(--color-ink)' }}>
         {title}
       </h1>
       <div className="flex items-center gap-3">
