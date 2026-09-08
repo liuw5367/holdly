@@ -58,6 +58,7 @@ export async function updateSettingsReminderConfig(
       reminderWarrantyDays: input.reminderWarrantyDays,
       updatedAt: new Date(),
     })
+    .where(eq(profiles.id, userId))
     .returning({ id: profiles.id })
 
   return row ?? null

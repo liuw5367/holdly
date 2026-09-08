@@ -25,16 +25,23 @@ export async function savePlan(input: SavePlanInput) {
   if (!uniqueMembers.has(input.userId)) {
     uniqueMembers.set(input.userId, { userId: input.userId, role: 'owner' as const, note: '' })
   }
-
-  const members = [...uniqueMembers.values()]
+  if (!input.planId && [...uniqueMembers.keys()].some(userId => userId !== input.userId))
+    throw new Error('计划成员无效，请通过邀请链接添加成员')
 
   return db.transaction(async (tx) => {
     let planId = input.planId
+    let allowedMemberIds = new Set([input.userId])
 
     if (planId) {
       const access = await getActivePlanForUser(planId, input.userId)
       if (!access?.canManage)
         throw new Error('无权限编辑该计划')
+
+      const activeMembers = await tx
+        .select({ userId: planMembers.userId })
+        .from(planMembers)
+        .where(and(eq(planMembers.planId, planId), isNull(planMembers.deletedAt)))
+      allowedMemberIds = new Set(activeMembers.map(member => member.userId))
 
       await tx
         .update(plans)
@@ -64,6 +71,10 @@ export async function savePlan(input: SavePlanInput) {
       planId = inserted[0].id
     }
 
+    const members = [...uniqueMembers.values()]
+    if (members.some(member => !allowedMemberIds.has(member.userId)))
+      throw new Error('计划成员无效，请通过邀请链接添加成员')
+
     await tx
       .update(planMembers)
       .set({ deletedAt: new Date(), updatedAt: new Date() })
@@ -75,7 +86,7 @@ export async function savePlan(input: SavePlanInput) {
         .values({
           planId,
           userId: member.userId,
-          role: member.userId === input.userId ? 'owner' : member.role,
+          role: member.userId === input.userId ? 'owner' : 'editor',
           note: member.note?.trim() || null,
         })
     }
@@ -105,15 +116,43 @@ export async function savePlan(input: SavePlanInput) {
 export async function savePlanRecordPatch(
   input: PlanRecordPatchInput,
 ): Promise<SavePlanRecordResult> {
-  const access = await getActivePlanForUser(input.planId, input.userId)
-  if (!access)
-    throw new Error('计划不存在或无访问权限')
-  if (access.plan.mode !== input.mode)
-    throw new Error('计划模式已变更，请刷新后重试')
-
   const now = new Date()
 
   return db.transaction(async (tx) => {
+    const [authorization] = await tx
+      .select({
+        mode: plans.mode,
+        ownerId: plans.ownerId,
+        permission: plans.permission,
+      })
+      .from(plans)
+      .innerJoin(planMembers, and(
+        eq(planMembers.planId, plans.id),
+        eq(planMembers.userId, input.userId),
+        isNull(planMembers.deletedAt),
+      ))
+      .where(and(eq(plans.id, input.planId), isNull(plans.deletedAt)))
+      .for('update')
+    if (!authorization)
+      throw new Error('计划不存在或无访问权限')
+    if (authorization.mode !== input.mode)
+      throw new Error('计划模式已变更，请刷新后重试')
+
+    const canEditAllItems = authorization.ownerId === input.userId || authorization.permission === 'all'
+    const activeMembers = await tx
+      .select({ userId: planMembers.userId })
+      .from(planMembers)
+      .where(and(eq(planMembers.planId, input.planId), isNull(planMembers.deletedAt)))
+      .for('update')
+    const activeMemberIds = new Set(activeMembers.map(member => member.userId))
+    const requestedMemberIds = [
+      ...input.addedItems.map(item => item.memberId),
+      ...input.updatedItems.map(item => item.memberId),
+      ...input.memberNotes.map(note => note.memberId),
+    ]
+    if (requestedMemberIds.some(memberId => !activeMemberIds.has(memberId)))
+      throw new Error('记录成员无效，请刷新后重试')
+
     let record = await tx
       .select()
       .from(planRecords)
@@ -167,7 +206,7 @@ export async function savePlanRecordPatch(
       if (!existing)
         continue
 
-      assertMemberEditable(access.canEditAllItems, existing.memberId, input.userId)
+      assertMemberEditable(canEditAllItems, existing.memberId, input.userId)
 
       if (item.expectedUpdatedAt && existing.updatedAt) {
         const expected = new Date(item.expectedUpdatedAt).getTime()
@@ -187,7 +226,7 @@ export async function savePlanRecordPatch(
       if (!existing)
         continue
 
-      assertMemberEditable(access.canEditAllItems, existing.memberId, input.userId)
+      assertMemberEditable(canEditAllItems, existing.memberId, input.userId)
 
       if (item.expectedUpdatedAt && existing.updatedAt) {
         const expected = new Date(item.expectedUpdatedAt).getTime()
@@ -196,7 +235,7 @@ export async function savePlanRecordPatch(
           throw new Error('记录条目已变更，请刷新后重试')
       }
 
-      assertMemberEditable(access.canEditAllItems, item.memberId, input.userId)
+      assertMemberEditable(canEditAllItems, item.memberId, input.userId)
 
       await tx
         .update(planRecordItems)
@@ -210,7 +249,7 @@ export async function savePlanRecordPatch(
     }
 
     for (const item of input.addedItems) {
-      assertMemberEditable(access.canEditAllItems, item.memberId, input.userId)
+      assertMemberEditable(canEditAllItems, item.memberId, input.userId)
 
       if (!item.name.trim())
         continue
@@ -235,7 +274,7 @@ export async function savePlanRecordPatch(
       const existingNotesMap = new Map(existingNotesAll.map(note => [note.memberId, note]))
 
       for (const noteInput of input.memberNotes) {
-        assertMemberEditable(access.canEditAllItems, noteInput.memberId, input.userId)
+        assertMemberEditable(canEditAllItems, noteInput.memberId, input.userId)
 
         const normalizedNote = noteInput.note.trim()
         const existing = existingNotesMap.get(noteInput.memberId)

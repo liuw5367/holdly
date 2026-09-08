@@ -38,9 +38,9 @@
 
 仓库的 `.github/workflows/send-reminders.yml` 每日 UTC 08:00 调用提醒端点，并通过 `x-cron-secret` 传递与部署环境一致的 `CRON_SECRET`。
 
-没有 Cron 请求头时，端点要求有效的 Supabase session，并只处理当前用户。设置页的手动检查按钮只在 localhost 或 127.0.0.1 显示。
+没有有效 Cron 密钥时，端点要求有效的 Supabase session，并只处理当前用户。设置页的手动检查按钮只在 localhost 或 127.0.0.1 显示。
 
-当前端点还接受 `x-cron-trigger: true`。该请求头可由任意客户端构造，不是有效的身份凭据，不能作为生产环境的信任边界。生产调度只应使用 `x-cron-secret`，并应在发布前移除这条兼容分支。
+Cron 模式只接受非空且与部署环境 `CRON_SECRET` 完全一致的 `x-cron-secret`。`x-cron-trigger` 不参与鉴权。
 
 ## 数据模型
 

@@ -166,7 +166,7 @@ Supabase client 每请求创建（`app/lib/supabase.server.ts`），通过 cooki
 
 注册邮件确认同样回调 `/auth/callback`。注册 action 使用 `emailRedirectTo=/auth/callback?registered=1`，callback 成功换取 session 后跳转 `/dashboard?registered=1`，Dashboard 显示一次注册成功提示并清理 query。
 
-OAuth 和注册邮件确认使用 PKCE code 回调。密码恢复及 OAuth-only 账户设置密码使用恢复邮件中的 `token_hash`，由 `/auth/callback` 调用 `verifyOtp(type: recovery)` 建立 session 后进入 `/account/update-password`；因此邮件可以在不同浏览器或设备中打开，不依赖发信端保存的 PKCE verifier cookie。账户内修改密码则先用旧密码重新认证，再更新密码。
+OAuth 和注册邮件确认使用 PKCE code 回调。密码恢复及 OAuth-only 账户设置密码使用邮件中的 `token_hash`：`/auth/callback` 立即调用 `verifyOtp(type: recovery)` 建立 session，并签发绑定该用户、15 分钟有效的 HMAC 恢复授权 cookie。改密 action 同时核对 session 用户与签名授权，成功后清除授权，失败时可在有效期内重试。邮件可在不同浏览器或设备中打开，普通登录 session 不能伪造恢复授权。账户内修改密码则先用旧密码重新认证，再更新密码。
 
 ## 数据库约定
 
@@ -178,9 +178,11 @@ OAuth 和注册邮件确认使用 PKCE code 回调。密码恢复及 OAuth-only 
 
 4. **时间戳**：所有表有 `created_at`，多数有 `updated_at`。使用 `TIMESTAMPTZ` 类型。
 
-5. **主键**：统一使用 UUID（`gen_random_uuid()`），除 `profiles`（关联 Supabase Auth UUID）和 `asset_tags`（复合主键）。
+5. **关联 ID 校验**：资产写入会验证分类、标签、支付类型和支付账户都属于当前用户；计划写入只接受已经通过邀请加入的活跃成员。客户端提交的关联 ID 不作为所有权依据。
 
-6. **注册初始化**：数据库触发器 `handle_new_user()` 在 `auth.users` 插入后自动创建 profile、预置分类、预置支付类型。
+6. **主键**：统一使用 UUID（`gen_random_uuid()`），除 `profiles`（关联 Supabase Auth UUID）和 `asset_tags`（复合主键）。
+
+7. **注册初始化**：数据库触发器 `handle_new_user()` 在 `auth.users` 插入后自动创建 profile、预置分类、预置支付类型。
 
 ## 数据模型
 

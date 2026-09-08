@@ -3,11 +3,11 @@ import { z } from 'zod'
 export const assetFormSchema = z.object({
   name: z.string().min(1, '名称必填').max(60, '名称最多 60 个字符'),
   emoji: z.string().min(1),
-  categoryId: z.string().min(1, '请选择分类'),
+  categoryId: z.string().uuid('请选择有效的分类'),
   assetType: z.enum(['one_time', 'subscription']),
-  paymentTypeId: z.string().optional(),
-  paymentAccountId: z.string().optional(),
-  tagIds: z.array(z.string()),
+  paymentTypeId: z.string().uuid('请选择有效的支付方式').optional(),
+  paymentAccountId: z.string().uuid('请选择有效的支付账户').optional(),
+  tagIds: z.array(z.string().uuid('请选择有效的标签')),
   notes: z.string().max(500, '备注最多 500 个字符').optional(),
 
   // 买断型
@@ -22,6 +22,10 @@ export const assetFormSchema = z.object({
   nextRenewalDate: z.string().optional(),
   subscriptionStartDate: z.string().optional(),
 }).superRefine((data, ctx) => {
+  if (data.paymentAccountId && !data.paymentTypeId) {
+    ctx.addIssue({ code: 'custom', message: '请选择支付方式', path: ['paymentTypeId'] })
+  }
+
   if (data.assetType === 'one_time') {
     if (!data.purchasePrice || Number(data.purchasePrice) <= 0) {
       ctx.addIssue({ code: 'custom', message: '购入价必须大于 0', path: ['purchasePrice'] })

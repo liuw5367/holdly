@@ -33,16 +33,14 @@
 
 | 类型 | 说明 |
 |---|---|
-| Loader | OAuth / 邮箱确认使用 PKCE code 换取 session；密码恢复使用邮件中的 `token_hash` 调用 `verifyOtp(type: recovery)`，避免依赖发信浏览器的 verifier cookie。成功 → redirect `/dashboard`（或 `?next=`）；带 `registered=1` 时 redirect `/dashboard?registered=1`，失败 → `/login?error=` |
+| Loader | OAuth / 邮箱确认使用 PKCE code 换取 session；密码恢复立即验证并消费邮件中的 `token_hash`，然后签发绑定用户、15 分钟有效的 HttpOnly 恢复授权 cookie，再 redirect `/account/update-password` |
 
 ### `/account/update-password`
 
 | 类型 | 说明 |
 |---|---|
-| Loader | 认证检查；`?mode=change` 表示账户内改密，否则为邮件恢复模式 |
-| Action | 账户内改密先调用 `signInWithPassword` 验证旧密码，再调用 `updateUser`；邮件恢复模式直接更新密码；成功 redirect `/settings/account?passwordChanged=1` |
-
-**当前限制**：恢复模式只检查用户已有 session，没有校验该 session 是否由 recovery token 建立。已登录用户直接访问不带 `mode=change` 的路由时，也能进入不验证旧密码的更新流程。
+| Loader | `?mode=change` 表示账户内改密；恢复模式要求当前 session 与签名恢复授权属于同一用户 |
+| Action | 账户内改密先调用 `signInWithPassword` 验证旧密码；邮件恢复模式验证签名恢复授权后调用 `updateUser`。授权无效、过期或用户不匹配时返回 403；改密成功后清除授权，更新失败时在有效期内保留以便重试 |
 
 ---
 
@@ -122,7 +120,7 @@
   }],
   categories: [{ id, name, emoji, isPreset, sortOrder }],
   tags: [{ id, name, color }],
-  assetTagMap: Record<assetId, tagId[]>
+  assetTagMap: Record<assetId, Array<{ id, name, color }>>
 }
 ```
 
@@ -453,7 +451,7 @@
 |---|---|
 | Action | Cron 鉴权通过时处理所有开启全局提醒的用户；否则要求 Supabase session，并只处理当前用户 |
 
-**鉴权**：仓库调度任务使用 `x-cron-secret`（GitHub Actions）。没有 Cron 请求头时使用当前用户 session。当前代码还接受 `x-cron-trigger: true`，该请求头可由任意客户端伪造，不能作为生产鉴权方式。
+**鉴权**：仓库调度任务只接受非空且与环境变量 `CRON_SECRET` 完全一致的 `x-cron-secret`（GitHub Actions）。没有有效 Cron 密钥时使用当前用户 session，仅处理该用户。
 
 **处理逻辑**：
 1. 全局任务查询所有 `reminderEnabled = true` 的 profile；手动请求只使用当前用户
@@ -469,7 +467,7 @@
 |---|---|
 | Action | 每日触发，匹配用户 `backupDayOfMonth` → 生成 HTML 邮件，通过 Resend 发送 |
 
-**鉴权**：仓库调度任务使用 `x-cron-secret`（GitHub Actions）。当前代码还接受 `x-cron-trigger`，但该请求头不能作为生产鉴权方式。
+**鉴权**：仓库调度任务只接受非空且与环境变量 `CRON_SECRET` 完全一致的 `x-cron-secret`（GitHub Actions）；失败返回 401。
 
 **处理逻辑**：
 1. 查询所有 `backupEnabled = true` 的用户

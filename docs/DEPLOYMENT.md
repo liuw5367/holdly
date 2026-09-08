@@ -84,9 +84,54 @@ CRON_SECRET=your-random-secret-string
 
 ### 6. 数据访问边界
 
-`docs/db-init.sql` 当前没有启用 Row Level Security，也没有定义 Supabase policy。应用通过服务端 `DATABASE_URL` 访问数据库，并在 loader、action 和查询层按用户过滤数据。
+`docs/db-init.sql` 本身没有声明 Row Level Security 或 Supabase policy。应用通过服务端 `DATABASE_URL` 访问数据库，并在 loader、action 和查询层按用户过滤数据。
 
-这意味着应用层校验是当前主要的数据隔离边界。生产环境必须确认 Supabase Data API 不能通过公开的 anon key 直接读写这些表：可以撤销 `anon`、`authenticated` 对 `public` 业务表的权限，或补齐并验证 RLS policy。在完成其中一种保护前，不应开放生产数据。
+当前 Supabase 项目的现场核查结果是：所有 `public` 业务表均已启用 RLS，`anon` 与 `authenticated` 保留表级权限，但没有定义 policy。PostgreSQL 对“已启用 RLS 且没有 policy”的表默认拒绝访问，因此浏览器不能通过公开 anon key 直接读写业务数据。当前没有序列；`handle_new_user()` 对 `anon`、`authenticated` 显示可执行，但它是只能由注册 Trigger 触发的 `RETURNS TRIGGER` 函数，不是可直接调用的业务 RPC。
+
+可在 Supabase SQL Editor 运行以下只读查询确认当前状态（查询不会修改权限）：
+
+```sql
+select
+  c.relname as table_name,
+  c.relrowsecurity as rls_enabled,
+  has_table_privilege('anon', c.oid, 'select') as anon_select,
+  has_table_privilege('anon', c.oid, 'insert') as anon_insert,
+  has_table_privilege('anon', c.oid, 'update') as anon_update,
+  has_table_privilege('anon', c.oid, 'delete') as anon_delete,
+  has_table_privilege('authenticated', c.oid, 'select') as authenticated_select,
+  has_table_privilege('authenticated', c.oid, 'insert') as authenticated_insert,
+  has_table_privilege('authenticated', c.oid, 'update') as authenticated_update,
+  has_table_privilege('authenticated', c.oid, 'delete') as authenticated_delete
+from pg_class c
+join pg_namespace n on n.oid = c.relnamespace
+where n.nspname = 'public' and c.relkind in ('r', 'p')
+order by c.relname;
+
+select schemaname, tablename, policyname, roles, cmd, qual, with_check
+from pg_policies
+where schemaname = 'public'
+order by tablename, policyname;
+
+select
+  sequence_name,
+  has_sequence_privilege('anon', format('%I.%I', sequence_schema, sequence_name), 'usage') as anon_usage,
+  has_sequence_privilege('authenticated', format('%I.%I', sequence_schema, sequence_name), 'usage') as authenticated_usage
+from information_schema.sequences
+where sequence_schema = 'public'
+order by sequence_name;
+
+select
+  p.proname as function_name,
+  pg_get_function_identity_arguments(p.oid) as arguments,
+  has_function_privilege('anon', p.oid, 'execute') as anon_execute,
+  has_function_privilege('authenticated', p.oid, 'execute') as authenticated_execute
+from pg_proc p
+join pg_namespace n on n.oid = p.pronamespace
+where n.nspname = 'public'
+order by p.proname, arguments;
+```
+
+本项目不需要浏览器直接访问业务表。当前采用的安全边界是“业务表全部启用 RLS，且不定义任何允许访问的 policy”，即默认拒绝 `anon`、`authenticated` 的所有行级访问。若未来出现 `rls_enabled = false` 的业务表，或新增 policy，必须重新审查；policy 需要确认是否严格按 `auth.uid()` 隔离。Supabase Dashboard 的 API Settings 中也不应额外暴露不需要的 schema。
 
 ---
 
@@ -108,6 +153,7 @@ CRON_SECRET=your-random-secret-string
 | `RESEND_API_KEY` | Resend API Key |
 | `EMAIL_FROM` | 发件人地址（可选）|
 | `CRON_SECRET` | Cron 共享密钥 |
+| `PASSWORD_RECOVERY_SECRET` | 密码恢复授权签名密钥，至少 32 个随机字符 |
 
 ### 3. 构建配置
 
@@ -137,7 +183,7 @@ CRON_SECRET=your-random-secret-string
 | `CRON_SECRET` | 与部署环境中的 `CRON_SECRET` 保持一致 |
 | `VERCEL_URL` | 部署域名，例如 `https://holdly.example.com`；不配置时工作流使用仓库内的默认地址 |
 
-工作流通过 `x-cron-secret` 请求头鉴权。当前端点仍接受 `x-cron-trigger: true`，但该请求头不是秘密，不能作为生产环境的鉴权方式。仓库没有 `vercel.json`，默认调度来源是 GitHub Actions。提醒设置页在本地环境还提供仅处理当前登录用户的手动检查入口。
+工作流通过 `x-cron-secret` 请求头鉴权，服务端只接受非空且与部署环境 `CRON_SECRET` 完全一致的值。`x-cron-trigger` 不参与鉴权。仓库没有 `vercel.json`，默认调度来源是 GitHub Actions。提醒设置页在本地环境还提供仅处理当前登录用户的手动检查入口。
 
 ---
 

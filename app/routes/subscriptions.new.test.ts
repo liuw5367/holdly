@@ -39,7 +39,7 @@ describe('新建订阅 action', () => {
     const formData = new FormData()
     formData.set('name', '测试订阅')
     formData.set('emoji', '🔁')
-    formData.set('categoryId', 'category-1')
+    formData.set('categoryId', '11111111-1111-4111-8111-111111111111')
     formData.set('purchaseDate', '2024-01-15')
     formData.set('subscriptionStartDate', '2024-01-15')
     formData.set('subscriptionPrice', '10')

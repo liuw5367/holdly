@@ -1,5 +1,5 @@
 import { format } from 'date-fns'
-import { and, desc, eq, isNull } from 'drizzle-orm'
+import { and, desc, eq, inArray, isNull } from 'drizzle-orm'
 import { db } from '~/db'
 import {
   assets,
@@ -17,6 +17,100 @@ import { belongsToAsset } from '~/lib/asset-resource'
 import { sortPaymentTypes } from '~/lib/payment-type'
 import { advanceRenewalDate } from '~/lib/subscription-renewal'
 import { validateTradeIn } from '~/lib/trade-in'
+
+type AssetTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0]
+
+interface AssetRelationIds {
+  categoryId: string
+  paymentTypeId?: string
+  paymentAccountId?: string
+  tagIds?: string[]
+}
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+async function hasOwnedAssetRelations(
+  tx: AssetTransaction,
+  userId: string,
+  relations: AssetRelationIds,
+  currentPaymentAccountId?: string | null,
+) {
+  const relationIds = [
+    relations.categoryId,
+    relations.paymentTypeId,
+    relations.paymentAccountId,
+    ...(relations.tagIds ?? []),
+  ].filter((id): id is string => Boolean(id))
+  if (relationIds.some(id => !UUID_PATTERN.test(id)))
+    return false
+  if (relations.paymentAccountId && !relations.paymentTypeId)
+    return false
+
+  const [category] = await tx.select({ id: categories.id })
+    .from(categories)
+    .where(and(
+      eq(categories.id, relations.categoryId),
+      eq(categories.userId, userId),
+      isNull(categories.deletedAt),
+    ))
+    .limit(1)
+    .for('update')
+  if (!category)
+    return false
+
+  if (relations.paymentTypeId) {
+    const [paymentType] = await tx.select({ id: paymentTypes.id })
+      .from(paymentTypes)
+      .where(and(
+        eq(paymentTypes.id, relations.paymentTypeId),
+        eq(paymentTypes.userId, userId),
+        isNull(paymentTypes.deletedAt),
+      ))
+      .limit(1)
+      .for('update')
+    if (!paymentType)
+      return false
+  }
+
+  const uniqueTagIds = [...new Set(relations.tagIds ?? [])]
+  if (uniqueTagIds.length) {
+    const ownedTags = await tx.select({ id: tags.id })
+      .from(tags)
+      .where(and(
+        eq(tags.userId, userId),
+        inArray(tags.id, uniqueTagIds),
+        isNull(tags.deletedAt),
+      ))
+      .for('update')
+    if (ownedTags.length !== uniqueTagIds.length)
+      return false
+  }
+
+  if (relations.paymentAccountId) {
+    const [account] = await tx.select({
+      id: paymentAccounts.id,
+      paymentTypeId: paymentAccounts.paymentTypeId,
+      isActive: paymentAccounts.isActive,
+    })
+      .from(paymentAccounts)
+      .where(and(
+        eq(paymentAccounts.id, relations.paymentAccountId),
+        eq(paymentAccounts.userId, userId),
+        isNull(paymentAccounts.deletedAt),
+      ))
+      .for('update')
+    const keepsExistingInactiveAccount = account?.id === currentPaymentAccountId
+    if (
+      !account
+      || (!account.isActive && !keepsExistingInactiveAccount)
+      || (relations.paymentTypeId && account.paymentTypeId !== relations.paymentTypeId)
+    ) {
+      return false
+    }
+  }
+
+  return true
+}
 
 // ========== 资产列表 ==========
 
@@ -192,22 +286,9 @@ export interface CreateAssetInput {
 export async function createAsset(input: CreateAssetInput) {
   const { tagIds, ...data } = input
   return db.transaction(async (tx) => {
-    if (data.paymentAccountId) {
-      const [account] = await tx.select({
-        id: paymentAccounts.id,
-        paymentTypeId: paymentAccounts.paymentTypeId,
-      })
-        .from(paymentAccounts)
-        .where(and(
-          eq(paymentAccounts.id, data.paymentAccountId),
-          eq(paymentAccounts.userId, data.userId),
-          eq(paymentAccounts.isActive, true),
-          isNull(paymentAccounts.deletedAt),
-        ))
-        .for('update')
-      if (!account || (data.paymentTypeId && account.paymentTypeId !== data.paymentTypeId))
-        return null
-    }
+    const relationsAreOwned = await hasOwnedAssetRelations(tx, data.userId, { ...data, tagIds })
+    if (!relationsAreOwned)
+      return null
 
     const [asset] = await tx.insert(assets).values({
       userId: data.userId,
@@ -228,8 +309,9 @@ export async function createAsset(input: CreateAssetInput) {
       notes: data.notes ?? null,
     }).returning({ id: assets.id })
 
-    if (tagIds && tagIds.length > 0)
-      await tx.insert(assetTags).values(tagIds.map(tagId => ({ assetId: asset.id, tagId })))
+    const uniqueTagIds = [...new Set(tagIds ?? [])]
+    if (uniqueTagIds.length > 0)
+      await tx.insert(assetTags).values(uniqueTagIds.map(tagId => ({ assetId: asset.id, tagId })))
 
     if (data.assetType === 'one_time' && data.currentValue !== undefined) {
       await tx.insert(assetValueRecords).values({
@@ -273,28 +355,9 @@ export async function updateAsset(id: string, userId: string, input: UpdateAsset
     if (!existing)
       return false
 
-    if (data.paymentAccountId) {
-      const [account] = await tx.select({
-        id: paymentAccounts.id,
-        paymentTypeId: paymentAccounts.paymentTypeId,
-        isActive: paymentAccounts.isActive,
-      })
-        .from(paymentAccounts)
-        .where(and(
-          eq(paymentAccounts.id, data.paymentAccountId),
-          eq(paymentAccounts.userId, userId),
-          isNull(paymentAccounts.deletedAt),
-        ))
-        .for('update')
-      const keepsExistingInactiveAccount = account?.id === existing.paymentAccountId
-      if (
-        !account
-        || (!account.isActive && !keepsExistingInactiveAccount)
-        || (data.paymentTypeId && account.paymentTypeId !== data.paymentTypeId)
-      ) {
-        return false
-      }
-    }
+    const relationsAreOwned = await hasOwnedAssetRelations(tx, userId, { ...data, tagIds }, existing.paymentAccountId)
+    if (!relationsAreOwned)
+      return false
 
     await tx.update(assets).set({
       name: data.name,
@@ -318,8 +381,9 @@ export async function updateAsset(id: string, userId: string, input: UpdateAsset
     }).where(and(eq(assets.id, id), eq(assets.userId, userId)))
 
     await tx.delete(assetTags).where(eq(assetTags.assetId, id))
-    if (tagIds && tagIds.length > 0)
-      await tx.insert(assetTags).values(tagIds.map(tagId => ({ assetId: id, tagId })))
+    const uniqueTagIds = [...new Set(tagIds ?? [])]
+    if (uniqueTagIds.length > 0)
+      await tx.insert(assetTags).values(uniqueTagIds.map(tagId => ({ assetId: id, tagId })))
 
     if (data.assetType === 'one_time' && data.currentValue !== undefined && data.currentValue !== existing.currentValue) {
       await tx.insert(assetValueRecords).values({
@@ -453,31 +517,9 @@ export async function tradeInAsset(input: TradeInAssetInput) {
     if (!validation.ok)
       throw new Error(validation.error)
 
-    const category = await tx
-      .select({ id: categories.id })
-      .from(categories)
-      .where(and(eq(categories.id, input.categoryId), eq(categories.userId, input.userId), isNull(categories.deletedAt)))
-      .limit(1)
-      .then(rows => rows[0])
-    if (!category)
-      throw new Error('分类不存在')
-
-    if (input.paymentAccountId) {
-      const [account] = await tx.select({
-        id: paymentAccounts.id,
-        paymentTypeId: paymentAccounts.paymentTypeId,
-      })
-        .from(paymentAccounts)
-        .where(and(
-          eq(paymentAccounts.id, input.paymentAccountId),
-          eq(paymentAccounts.userId, input.userId),
-          eq(paymentAccounts.isActive, true),
-          isNull(paymentAccounts.deletedAt),
-        ))
-        .for('update')
-      if (!account || (input.paymentTypeId && account.paymentTypeId !== input.paymentTypeId))
-        throw new Error('支付账户不可用，请重新选择')
-    }
+    const relationsAreOwned = await hasOwnedAssetRelations(tx, input.userId, input)
+    if (!relationsAreOwned)
+      throw new Error('分类、标签或支付方式不可用，请重新选择')
 
     const tagName = '以旧换新购买'
     let tradeInTag = await tx

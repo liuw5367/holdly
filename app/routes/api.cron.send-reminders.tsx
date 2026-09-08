@@ -1,13 +1,12 @@
-import process from 'node:process'
 import { eq } from 'drizzle-orm'
 import { db } from '~/db'
 import { profiles } from '~/db/schema'
+import { isAuthorizedCronRequest } from '~/lib/cron-auth.server'
 import { processUserReminders } from '~/lib/reminder.server'
 import { createSupabaseServerClient } from '~/lib/supabase.server'
 
 export async function action({ request }: { request: Request }) {
-  const secret = request.headers.get('x-cron-secret')
-  const isCron = secret === process.env.CRON_SECRET || request.headers.get('x-cron-trigger') === 'true'
+  const isCron = isAuthorizedCronRequest(request)
 
   if (!isCron) {
     const { supabase } = createSupabaseServerClient(request)
