@@ -4,8 +4,11 @@ import * as XLSX from 'xlsx'
 import { db } from '~/db'
 import { getAssetTagsByUserId } from '~/db/queries/assets'
 import { assets, assetValueRecords, categories, paymentAccounts, paymentTypes, planMembers, planRecordItems, planRecordMemberNotes, planRecords, plans, profiles, subscriptionRenewals } from '~/db/schema'
+import { sumAmounts } from '~/lib/amount'
+import { calculatePlanRecordAmounts } from '~/lib/backup'
 import { renderEmailLayout } from '~/lib/email-template.server'
 import { sendEmail } from '~/lib/email.server'
+import { allocateWorksheetName } from '~/lib/xlsx'
 
 export async function generateExportXlsx(userId: string): Promise<Uint8Array> {
   const wb = XLSX.utils.book_new()
@@ -190,6 +193,7 @@ export async function generateExportXlsx(userId: string): Promise<Uint8Array> {
       isNull(plans.deletedAt),
     ))
 
+  const usedWorksheetNames = new Set(wb.SheetNames)
   for (const plan of userPlans) {
     const planMemberRows = await db
       .select({
@@ -254,26 +258,18 @@ export async function generateExportXlsx(userId: string): Promise<Uint8Array> {
       name: memberNameMap.get(m.userId)!,
     }))
 
-    let previousTotal = Number(plan.startingValue)
+    let previousTotal = sumAmounts([plan.startingValue])
     const sheetRows: Record<string, unknown>[] = []
 
     for (const rec of recordRows) {
       const items = itemByRecord.get(rec.id) || []
       const notes = noteByRecord.get(rec.id) || []
 
-      const monthIncome = items.filter(i => i.itemType === 'income').reduce((s, i) => s + Number(i.amount), 0)
-      const monthExpense = items.filter(i => i.itemType === 'expense').reduce((s, i) => s + Number(i.amount), 0)
-      const monthNet = monthIncome - monthExpense
-
-      let netIncome = monthNet
-      let totalValue: number
-      if (plan.planMode === 'snapshot') {
-        totalValue = monthNet
-        netIncome = totalValue - previousTotal
-      }
-      else {
-        totalValue = previousTotal + monthNet
-      }
+      const { monthIncome, monthExpense, netIncome, totalValue } = calculatePlanRecordAmounts(
+        previousTotal,
+        plan.planMode,
+        items,
+      )
       previousTotal = totalValue
 
       const row: Record<string, unknown> = {
@@ -289,9 +285,10 @@ export async function generateExportXlsx(userId: string): Promise<Uint8Array> {
         const [memberId, itemName] = colKey.split(':')
         const amt = items
           .filter(i => i.memberId === memberId && i.name === itemName)
-          .reduce((s, i) => s + Number(i.amount), 0)
-        if (amt !== 0)
-          row[itemColumns.get(colKey)!] = amt
+          .map(i => i.amount)
+        const totalAmount = sumAmounts(amt)
+        if (totalAmount !== 0)
+          row[itemColumns.get(colKey)!] = totalAmount
       }
 
       for (const m of noteMembers) {
@@ -308,7 +305,7 @@ export async function generateExportXlsx(userId: string): Promise<Uint8Array> {
       [...noteByRecord.values()].some(notes => notes.some(n => n.memberId === m.userId && n.note.trim())),
     ).length
     ws['!cols'] = Array.from({ length: Math.max(colCount, 6) }, () => ({ wch: 12 }))
-    const sheetName = `计划-${plan.name}`.slice(0, 31)
+    const sheetName = allocateWorksheetName(`计划-${plan.name}`, usedWorksheetNames)
     XLSX.utils.book_append_sheet(wb, ws, sheetName)
   }
 
@@ -528,19 +525,15 @@ export async function generateBackupHtml(userId: string): Promise<string> {
       html += `<th>${esc(m.name)}:备注</th>`
     html += '</tr></thead><tbody>'
 
-    let previousTotal = Number(plan.startingValue ?? 0)
+    let previousTotal = sumAmounts([plan.startingValue])
     for (const rec of recordRows) {
       const items = itemByRecord.get(rec.id) || []
       const notes = noteByRecord.get(rec.id) || []
-      const monthIncome = items.filter(i => i.itemType === 'income').reduce((s, i) => s + Number(i.amount), 0)
-      const monthExpense = items.filter(i => i.itemType === 'expense').reduce((s, i) => s + Number(i.amount), 0)
-      const monthNet = monthIncome - monthExpense
-      let netIncome = monthNet
-      let totalValue = previousTotal + monthNet
-      if (plan.planMode === 'snapshot') {
-        totalValue = monthNet
-        netIncome = totalValue - previousTotal
-      }
+      const { monthIncome, monthExpense, netIncome, totalValue } = calculatePlanRecordAmounts(
+        previousTotal,
+        plan.planMode,
+        items,
+      )
       previousTotal = totalValue
 
       html += '<tr>'
@@ -550,8 +543,9 @@ export async function generateBackupHtml(userId: string): Promise<string> {
         const [memberId, itemName] = colKey.split(':')
         const amt = items
           .filter(i => i.memberId === memberId && i.name === itemName)
-          .reduce((s, i) => s + Number(i.amount), 0)
-        html += `<td class="num">${amt !== 0 ? esc(amt) : ''}</td>`
+          .map(i => i.amount)
+        const totalAmount = sumAmounts(amt)
+        html += `<td class="num">${totalAmount !== 0 ? esc(totalAmount) : ''}</td>`
       }
       html += `<td class="num">${monthIncome || ''}</td>`
       html += `<td class="num">${monthExpense || ''}</td>`
