@@ -26,7 +26,7 @@ app/
 │   ├── asset-form.tsx   # 资产表单（买断/订阅共用）
 │   └── ...
 ├── db/
-│   ├── schema.ts        # Drizzle schema（18 张表）
+│   ├── schema.ts        # Drizzle schema（19 张表）
 │   └── queries/         # 数据库查询（assets/dashboard/plans/settings）
 ├── lib/
 │   ├── cost.ts          # 持有成本计算引擎
@@ -75,7 +75,7 @@ pnpm dev
 | `pnpm test` | 运行 Vitest 测试 |
 | `pnpm db:generate` | 生成 Drizzle 迁移文件 |
 | `pnpm db:push` | 推送 schema 到 Supabase |
-| `pnpm db:migrate` | 执行数据库迁移 |
+| `pnpm db:migrate` | 执行数据库迁移；当前仓库缺少已跟踪的 Drizzle journal，暂不可作为部署路径 |
 | `pnpm db:studio` | 打开 Drizzle Studio |
 
 ## 文档
@@ -87,6 +87,4 @@ pnpm dev
 - [成本计算引擎](docs/COST-ENGINE.md)
 - [API 接口文档](docs/API.md)
 - [提醒系统](docs/REMINDER.md)
-- [手动续费实现记录](docs/subscription-renewal-design.md)
 - [数据库初始化 SQL](docs/db-init.sql)
-- [HTML 原型](docs/holdly-prototype.html)

@@ -12,7 +12,7 @@ This file provides guidance to agent when working with code in this repository.
 
 - 路由定义在 `app/routes.ts`，使用 React Router v7 配置式路由。每个路由文件导出 `loader`（服务端数据）和 `action`（变更操作）。
 - 认证路由共享 `app-shell.tsx` 布局，loader 中检查 Supabase session，未登录重定向到 `/login`。
-- **优先客户端渲染**，loader/action 仅作数据接口，不做 SSR 页面渲染。
+- `react-router.config.ts` 启用 SSR。loader/action 在服务端执行，路由组件参与服务端渲染并在浏览器水合；浏览器交互仍由客户端状态处理。
 
 ### 数据库约定
 
@@ -20,6 +20,7 @@ This file provides guidance to agent when working with code in this repository.
 - **无外键约束**：表中存储关联字段（如 `user_id`、`asset_id`）但不声明 `REFERENCES`，关联查询由 Drizzle ORM 在应用层处理。建表 SQL 见 `docs/db-init.sql`。
 - **软删除**：所有查询必须过滤 `deleted_at IS NULL`，禁止硬删除用户数据。
 - **金额计算**：使用 `currency.js` 做精确计算，禁止裸浮点数运算。核心逻辑见 `app/lib/cost.ts`。
+- **迁移现状**：仓库尚未跟踪 Drizzle journal，`pnpm db:migrate` 当前不能作为可复现的部署路径。数据库初始化以 `docs/db-init.sql` 为准；修复 journal 前，不得声称迁移命令可用于生产。
 
 ### UI 规范
 
@@ -37,7 +38,7 @@ Supabase Auth，每请求创建 client（`app/lib/supabase.server.ts`）。支�
 
 ### 邮件提醒
 
-通过 Cron 端点 + Resend 发送邮件提醒，支持两种类型：订阅续费和保修到期。Cron 端点为 `POST /api/cron/send-reminders`，支持 Vercel Cron（`x-cron-trigger`）和 GitHub Actions（`x-cron-secret`）双重鉴权。用户也可在设置页「手动检查」触发。全局默认值在 `profiles` 表，单资产覆盖在 `assets` 表。
+通过 Cron 端点 + Resend 发送邮件提醒，支持订阅续费和保修到期。仓库定时任务使用 GitHub Actions，并通过 `x-cron-secret` 鉴权。当前端点仍接受 `x-cron-trigger: true`，但该请求头不是秘密，不能作为生产环境的信任边界。用户也可在设置页「手动检查」触发。全局默认值在 `profiles` 表，单资产覆盖在 `assets` 表。
 
 ## 开发流程
 
@@ -63,8 +64,6 @@ Supabase Auth，每请求创建 client（`app/lib/supabase.server.ts`）。支�
 | `app/routes/api.cron.send-backup.tsx` | 备份 cron 端点 |
 | `app/lib/backup.server.ts` | 数据导出/备份共享逻辑 |
 | `docs/REQUIREMENT.md` | 完整产品需求 |
-| `docs/REMINDER.md` | 邮件提醒设计文档 |
-| `docs/holdly-prototype.html` | HTML 交互原型 |
+| `docs/REMINDER.md` | 邮件提醒当前实现 |
 | `docs/DESIGN.md` | 应用设计规范 |
-| `docs/DESIGN-CLAUDE.md` | 品牌设计体系 |
 | `docs/db-init.sql` | 数据库初始化 SQL |

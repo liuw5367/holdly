@@ -1,4 +1,4 @@
-# Holdly — 部署与环境配置指南
+# Holdly 部署与环境配置指南
 
 ---
 
@@ -37,8 +37,8 @@ CRON_SECRET=your-random-secret-string
 在 Supabase Dashboard → SQL Editor 中执行 `docs/db-init.sql`。
 
 该脚本创建：
-- 18 张业务表
-- 30 个索引
+- 19 张业务表
+- 33 个索引
 - 注册自动初始化触发器（`handle_new_user`）
 
 ### 3. Auth 配置
@@ -81,6 +81,12 @@ CRON_SECRET=your-random-secret-string
 3. 插入 7 个预置支付类型
 
 无需额外配置，执行 SQL 即生效。
+
+### 6. 数据访问边界
+
+`docs/db-init.sql` 当前没有启用 Row Level Security，也没有定义 Supabase policy。应用通过服务端 `DATABASE_URL` 访问数据库，并在 loader、action 和查询层按用户过滤数据。
+
+这意味着应用层校验是当前主要的数据隔离边界。生产环境必须确认 Supabase Data API 不能通过公开的 anon key 直接读写这些表：可以撤销 `anon`、`authenticated` 对 `public` 业务表的权限，或补齐并验证 RLS policy。在完成其中一种保护前，不应开放生产数据。
 
 ---
 
@@ -131,7 +137,7 @@ CRON_SECRET=your-random-secret-string
 | `CRON_SECRET` | 与部署环境中的 `CRON_SECRET` 保持一致 |
 | `VERCEL_URL` | 部署域名，例如 `https://holdly.example.com`；不配置时工作流使用仓库内的默认地址 |
 
-工作流通过 `x-cron-secret` 请求头鉴权。端点也兼容携带 `x-cron-trigger: true` 的 Vercel Cron 请求，但仓库当前没有 `vercel.json`，默认调度来源是 GitHub Actions。提醒设置页在本地环境还提供仅处理当前登录用户的手动检查入口。
+工作流通过 `x-cron-secret` 请求头鉴权。当前端点仍接受 `x-cron-trigger: true`，但该请求头不是秘密，不能作为生产环境的鉴权方式。仓库没有 `vercel.json`，默认调度来源是 GitHub Actions。提醒设置页在本地环境还提供仅处理当前登录用户的手动检查入口。
 
 ---
 
@@ -158,7 +164,7 @@ API Key 需添加到 Vercel 环境变量（供 cron route 使用）：
 
 ## 数据库迁移
 
-项目使用 Drizzle Kit 管理迁移。
+项目包含 Drizzle SQL 迁移文件，但当前仓库没有跟踪 `drizzle/meta/` journal，且 journal 中引用的文件名与已提交 SQL 不一致。因此 `pnpm db:migrate` 当前不是可复现的部署路径。
 
 ### 开发环境
 
@@ -169,13 +175,15 @@ pnpm db:generate
 # 推送变更到数据库（开发用）
 pnpm db:push
 
-# 正式执行迁移（生产用）
-pnpm db:migrate
+# 检查 schema 与迁移 SQL
+pnpm exec drizzle-kit check
 ```
+
+新环境使用 `docs/db-init.sql` 初始化。已有环境的结构变更需要人工审查相应 SQL 后执行，并同步更新 `app/db/schema.ts` 与 `docs/db-init.sql`。修复并提交完整 journal 前，不要在生产环境运行 `pnpm db:migrate`。
 
 ### 迁移文件
 
-迁移 SQL 存储在 `drizzle/` 目录，Drizzle 元数据位于被 Git 忽略的 `drizzle/meta/`。不要在文档中固定迁移数量；以目录中的 SQL 文件为准。
+迁移 SQL 存储在 `drizzle/` 目录。`drizzle/meta/` 当前被 Git 忽略，这是迁移不可复现的直接原因之一。
 
 ---
 

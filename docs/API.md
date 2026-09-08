@@ -1,4 +1,4 @@
-# Holdly — API 接口文档
+# Holdly API 接口文档
 
 > 所有路由使用 React Router v7 的 loader/action 模式。loader 负责数据获取，action 负责数据变更。
 > 认证路由统一在 `app-shell.tsx` loader 中检查登录状态，未登录重定向 `/login?next=`。
@@ -13,7 +13,7 @@
 |---|---|
 | Loader | 已登录 → redirect `/dashboard`（或 `?next=` 参数）|
 | Action `oauth` | 接收 `provider`（github/google），返回 OAuth redirect URL |
-| Action (默认) | 邮箱密码登录，Zod 验证后调用 `signInWithPassword`，成功 → redirect |
+| Action（默认） | 邮箱密码登录，Zod 验证后调用 `signInWithPassword`，成功 → redirect |
 
 ### `/register`
 
@@ -42,6 +42,8 @@
 | Loader | 认证检查；`?mode=change` 表示账户内改密，否则为邮件恢复模式 |
 | Action | 账户内改密先调用 `signInWithPassword` 验证旧密码，再调用 `updateUser`；邮件恢复模式直接更新密码；成功 redirect `/settings/account?passwordChanged=1` |
 
+**当前限制**：恢复模式只检查用户已有 session，没有校验该 session 是否由 recovery token 建立。已登录用户直接访问不带 `mode=change` 的路由时，也能进入不验证旧密码的更新流程。
+
 ---
 
 ## Dashboard 模块
@@ -50,19 +52,31 @@
 
 | 类型 | 说明 |
 |---|---|
-| Loader | 返回 `{ kpi, statsByType, expiring }` |
+| Loader | 返回 `{ kpiByType, statsByType, expiring }` |
 | Action | 无 |
 
 **loader 返回数据**：
 
 ```typescript
 {
-  kpi: {
-    dailyCostTotal: number,        // 所有资产当日日均成本之和
-    subscriptionMonthlyTotal: number, // 活跃订阅月度费用之和
-    subscriptionYearlyTotal: number,  // 活跃订阅年度费用之和
-    activeAssetCount: number,      // 活跃资产数量
-    activeAssetPurchaseTotal: number  // 活跃资产购入价之和
+  kpiByType: {
+    one_time: {
+      activeCount: number,
+      dailyCostTotal: number,
+      purchaseTotal: number,
+      yearlyCostTotal: number
+    },
+    subscription: {
+      activeCount: number,
+      monthlyCostByCurrency: Record<string, number>,
+      yearlyCostByCurrency: Record<string, number>,
+      attentionCount: number,
+      attentionDetail: {
+        overdue: number,
+        sevenDays: number,
+        thirtyDays: number
+      }
+    }
   },
   statsByType: {
     one_time: {
@@ -75,7 +89,7 @@
     }
   },
   expiring: [{
-    id, emoji, name, detail   // detail 为到期描述文本（如"订阅 · 2026-06-15 到期（18 天后）"）
+    id, emoji, name, detail, reminderEnabled
   }]
 }
 ```
@@ -117,7 +131,7 @@
 | 类型 | 说明 |
 |---|---|
 | Loader | 订阅型 → redirect `/subscriptions/:id`。返回完整资产详情 |
-| Action | 支持 7 个 intent |
+| Action | 支持下表所列 intent |
 
 **loader 返回数据**：
 
@@ -140,7 +154,7 @@
 
 | Intent | 参数 | 说明 |
 |---|---|---|
-| `delete` | — | 软删除资产，redirect `/assets` |
+| `delete` | 无 | 软删除资产，redirect `/assets` |
 | `sell` | `tradeInPrice`, `tradedInAt` | 校验非负金额和日期后标记卖出；已卖出/换新时拒绝重复操作 |
 | `add-repair` | `repairDate`, `cost`, `reason`, `vendor`, `result`, `isDone` | 校验日期、非负费用和文本长度后创建维修记录 |
 | `update-repair` | `repairId` + 同上字段 | 更新当前资产的维修记录；不属于该资产时返回 404 |
@@ -182,7 +196,7 @@
 | 类型 | 说明 |
 |---|---|
 | Loader | 非订阅型 → redirect `/assets/:id`。返回订阅详情 + 计算指标 |
-| Action | 支持 5 个 intent |
+| Action | 支持下表所列 intent |
 
 **loader 返回数据**：
 
@@ -203,8 +217,8 @@
 | Intent | 参数 | 说明 |
 |---|---|---|
 | `cancel` | `stoppedAt` | 取消订阅，设置 `subscriptionStoppedAt` + `subscriptionStatus: 'cancelled'` |
-| `resume` | — | 恢复订阅，清除 `subscriptionStoppedAt` + `subscriptionStatus: 'active'` |
-| `delete` | — | 软删除，redirect `/assets` |
+| `resume` | 无 | 恢复订阅，清除 `subscriptionStoppedAt` + `subscriptionStatus: 'active'` |
+| `delete` | 无 | 软删除，redirect `/assets` |
 | `update_reminder` | `reminderEnabled`, `reminderSubscriptionDaysOverride` | 更新续费提醒开关与提前天数覆盖 |
 | `delete-renewal` | `recordId` | 校验归属后软删除续费历史；保留续费日期、预计价格和周期确认键 |
 | `renew` | `price`, `expectedStartDate`, `notes`, `updateExpectedPrice` | 锁定资产行并核对页面周期令牌后幂等确认，只推进一个周期；可同步后续预计价格 |
@@ -231,7 +245,7 @@
 
 | 类型 | 说明 |
 |---|---|
-| Loader | 返回 `{ plans }` — 用户参与的所有计划摘要 |
+| Loader | 返回 `{ plans }`，即用户参与的所有计划摘要 |
 | Action | 无 |
 
 **loader 返回数据**：
@@ -252,7 +266,7 @@
 | 类型 | 说明 |
 |---|---|
 | Loader | 返回完整计划详情 |
-| Action | 支持 3 个 intent |
+| Action | 支持下表所列 intent |
 
 **loader 返回数据**：
 
@@ -269,13 +283,15 @@
 }
 ```
 
+`recordedTotalValue` 是保留字段，当前返回 `null`。snapshot 模式的 `totalValue` 由当月收入项减支出项得到。
+
 **action intents**：
 
 | Intent | 参数 | 说明 |
 |---|---|---|
-| `delete-plan` | — | 软删除计划，redirect `/plans` |
-| `regenerate-invite` | — | 撤销旧链接 + 创建新链接（30 天有效）|
-| `revoke-invite` | — | 撤销所有活跃邀请链接 |
+| `delete-plan` | 无 | 软删除计划，redirect `/plans` |
+| `regenerate-invite` | 无 | 撤销旧链接 + 创建新链接（30 天有效）|
+| `revoke-invite` | 无 | 撤销所有活跃邀请链接 |
 
 ### `POST /plans/new`
 
@@ -313,14 +329,19 @@
 
 ```typescript
 {
-  planId, year, month,
-  expectedUpdatedAt: string,  // 乐观锁
+  mode: 'accumulate' | 'snapshot',
+  year, month,
+  expectedRecordUpdatedAt?: string,
   addedItems: [{ memberId, itemType, name, amount }],
-  updatedItems: [{ id, name, amount }],
-  deletedItems: string[],     // item IDs
-  memberNotes: [{ memberId, note }]
+  updatedItems: [{ id, memberId, name, amount, expectedUpdatedAt? }],
+  deletedItems: [{ id, expectedUpdatedAt? }],
+  memberNotes: [{ memberId, note, expectedUpdatedAt? }]
 }
 ```
+
+`planId` 来自路由参数，不在请求 payload 中。
+
+版本字段在读取后由应用代码比较，但数据库更新语句没有附带版本条件。它能发现保存前已经发生的修改，不能提供原子并发写入保证。
 
 ### `GET /plans/invite/:token`
 
@@ -330,7 +351,7 @@
 | Action | 无 |
 
 **redirect 规则**：
-- 未登录 → `/login`（不保留 token）
+- 未登录 → `/login?next=/plans/invite/:token`（登录后继续接受邀请）
 - token 无效 → `/plans?invite=invalid`
 - 已加入 → `/plans/:planId?invite=already`
 - 新加入 → `/plans/:planId?invite=joined`
@@ -420,7 +441,7 @@
 | Loader | 返回 XLSX 文件二进制流（`Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`）|
 | Action | 无 |
 
-资产工作表包含购买凭证文本或 URL，确保导出可完整恢复资产录入信息。
+资产工作表包含购买凭证文本或 URL。工作簿还包含估值历史、订阅续费历史、支付账户和计划月度记录；当前不导出保修与维修记录。
 
 ---
 
@@ -432,7 +453,7 @@
 |---|---|
 | Action | Cron 鉴权通过时处理所有开启全局提醒的用户；否则要求 Supabase session，并只处理当前用户 |
 
-**鉴权**：`x-cron-secret`（GitHub Actions）或 `x-cron-trigger: true`（兼容 Vercel Cron）。没有 Cron 请求头时使用当前用户 session。
+**鉴权**：仓库调度任务使用 `x-cron-secret`（GitHub Actions）。没有 Cron 请求头时使用当前用户 session。当前代码还接受 `x-cron-trigger: true`，该请求头可由任意客户端伪造，不能作为生产鉴权方式。
 
 **处理逻辑**：
 1. 全局任务查询所有 `reminderEnabled = true` 的 profile；手动请求只使用当前用户
@@ -448,7 +469,7 @@
 |---|---|
 | Action | 每日触发，匹配用户 `backupDayOfMonth` → 生成 HTML 邮件，通过 Resend 发送 |
 
-**鉴权**：`x-cron-secret`（GitHub Actions）或 `x-cron-trigger`（Vercel Cron）
+**鉴权**：仓库调度任务使用 `x-cron-secret`（GitHub Actions）。当前代码还接受 `x-cron-trigger`，但该请求头不能作为生产鉴权方式。
 
 **处理逻辑**：
 1. 查询所有 `backupEnabled = true` 的用户
@@ -472,7 +493,3 @@
 | `plans.invite.ts` / `plans.import.ts` | 邀请链接与 CSV 历史导入 |
 | `plans.types.ts` / `plans.ts` | 计划类型、纯函数与统一导出入口 |
 | `settings.ts` | 个人资料、分类、标签、支付方式、提醒与备份配置 |
-
----
-
-*文档结束*

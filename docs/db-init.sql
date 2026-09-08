@@ -130,7 +130,7 @@ CREATE TABLE IF NOT EXISTS public.asset_tags (
   PRIMARY KEY (asset_id, tag_id)
 );
 
--- 7a. asset_value_records（资产估值历史）
+-- 8. asset_value_records（资产估值历史）
 CREATE TABLE IF NOT EXISTS public.asset_value_records (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL,
@@ -147,7 +147,7 @@ CREATE TABLE IF NOT EXISTS public.asset_value_records (
 CREATE INDEX IF NOT EXISTS asset_value_records_asset_date_idx ON public.asset_value_records (asset_id, valued_on);
 CREATE INDEX IF NOT EXISTS asset_value_records_user_idx ON public.asset_value_records (user_id);
 
--- 8. warranties（保修信息）
+-- 9. warranties（保修信息）
 CREATE TABLE IF NOT EXISTS public.warranties (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   asset_id UUID NOT NULL UNIQUE,
@@ -158,7 +158,7 @@ CREATE TABLE IF NOT EXISTS public.warranties (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 9. repair_records（维修记录）
+-- 10. repair_records（维修记录）
 CREATE TABLE IF NOT EXISTS public.repair_records (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   asset_id UUID NOT NULL,
@@ -171,7 +171,7 @@ CREATE TABLE IF NOT EXISTS public.repair_records (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 10. subscription_renewals（订阅续费记录）
+-- 11. subscription_renewals（订阅续费记录）
 CREATE TABLE IF NOT EXISTS public.subscription_renewals (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   asset_id UUID NOT NULL,
@@ -185,7 +185,7 @@ CREATE TABLE IF NOT EXISTS public.subscription_renewals (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 11. plans（计划）
+-- 12. plans（计划）
 CREATE TABLE IF NOT EXISTS public.plans (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   owner_id UUID NOT NULL,
@@ -199,7 +199,7 @@ CREATE TABLE IF NOT EXISTS public.plans (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 12. plan_members（计划成员）
+-- 13. plan_members（计划成员）
 CREATE TABLE IF NOT EXISTS public.plan_members (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   plan_id UUID NOT NULL,
@@ -212,7 +212,7 @@ CREATE TABLE IF NOT EXISTS public.plan_members (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 13. plan_default_items（计划默认项目）
+-- 14. plan_default_items（计划默认项目）
 CREATE TABLE IF NOT EXISTS public.plan_default_items (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   plan_id UUID NOT NULL,
@@ -224,7 +224,7 @@ CREATE TABLE IF NOT EXISTS public.plan_default_items (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 14. plan_invite_links（计划邀请链接）
+-- 15. plan_invite_links（计划邀请链接）
 CREATE TABLE IF NOT EXISTS public.plan_invite_links (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   plan_id UUID NOT NULL,
@@ -236,7 +236,7 @@ CREATE TABLE IF NOT EXISTS public.plan_invite_links (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 15. plan_records（月度记录）
+-- 16. plan_records（月度记录）
 CREATE TABLE IF NOT EXISTS public.plan_records (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   plan_id UUID NOT NULL,
@@ -249,7 +249,7 @@ CREATE TABLE IF NOT EXISTS public.plan_records (
   UNIQUE(plan_id, year, month)
 );
 
--- 16. plan_record_items（月度记录条目）
+-- 17. plan_record_items（月度记录条目）
 CREATE TABLE IF NOT EXISTS public.plan_record_items (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   record_id UUID NOT NULL,
@@ -262,7 +262,7 @@ CREATE TABLE IF NOT EXISTS public.plan_record_items (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 17. plan_record_member_notes（月度记录成员备注）
+-- 18. plan_record_member_notes（月度记录成员备注）
 CREATE TABLE IF NOT EXISTS public.plan_record_member_notes (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   record_id UUID NOT NULL,
@@ -274,7 +274,7 @@ CREATE TABLE IF NOT EXISTS public.plan_record_member_notes (
   UNIQUE(record_id, member_id)
 );
 
--- 18. reminder_jobs（提醒任务）
+-- 19. reminder_jobs（提醒任务）
 CREATE TABLE IF NOT EXISTS public.reminder_jobs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   asset_id UUID NOT NULL,

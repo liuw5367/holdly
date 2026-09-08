@@ -1,4 +1,4 @@
-# Holdly — 持有成本计算引擎
+# Holdly 持有成本计算引擎
 
 > 核心实现：`app/lib/cost.ts`
 > 测试：`app/lib/cost.test.ts`
@@ -118,7 +118,7 @@ cycleMonths: monthly=1, quarterly=3, yearly=12
 - 金额字段：`NUMERIC(12, 2)`，两位小数
 - 运算：使用 `currency.js` 处理金额加减，避免 JavaScript 浮点数精度问题
 - 日均成本展示：保留两位小数（`toFixed(2)`）
-- 成本引擎内部计算使用原生 `number`，最终展示时格式化
+- 函数输入和返回值为 `number`；金额运算通过 `currency.js` 完成，日期天数与调和系数使用原生数值运算
 
 ---
 
@@ -137,9 +137,4 @@ cycleMonths: monthly=1, quarterly=3, yearly=12
 
 ## 测试用例
 
-见 `app/lib/cost.test.ts`，当前覆盖：
-
-- 买断区间成本：区间起点等于购入日时的 Infinity 防护
-- 已卖出区间成本：首日区间的 Infinity 防护
-
-> **注意**：以下函数目前无测试覆盖：`calcOneTimeDailyCost`、`calcSubscriptionDailyCost`、`activeDaysInRange`、`calcSubscriptionCostRange`、`countSubPaymentsInMonth`。
+见 `app/lib/cost.test.ts`。测试覆盖买断型日均成本、订阅型日均成本、区间有效天数、买断与订阅区间成本、月内订阅扣款次数，以及购入首日、未来日期、卖出截断等边界情况。

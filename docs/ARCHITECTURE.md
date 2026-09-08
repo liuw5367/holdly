@@ -1,4 +1,4 @@
-# Holdly — 开发架构文档
+# Holdly 开发架构文档
 
 ---
 
@@ -6,7 +6,7 @@
 
 | 层级 | 方案 | 决策理由 |
 |---|---|---|
-| 框架 | React Router v7 | 配置式路由；loader/action 提供服务端数据接口，页面以客户端交互为主 |
+| 框架 | React Router v7 | 配置式路由；启用 SSR，loader/action 在服务端执行，页面在浏览器水合后交互 |
 | 构建 | Vite 8.0 | RRv7 默认，HMR 极快 |
 | UI | shadcn/ui (base-nova) + Tailwind v4 | 组件可控、样式一致、无运行时开销 |
 | ORM | Drizzle ORM | 类型安全，SQL-like API，迁移工具完善 |
@@ -54,6 +54,7 @@ routes.ts
     ├── settings/payment-accounts  → settings/payment-accounts.tsx
     ├── settings/payment-accounts/new      → settings.payment-account-new.tsx
     ├── settings/payment-accounts/:id/edit → settings.payment-account-editor.tsx
+    ├── settings/payment-accounts/card/:id? → settings.payment-card-editor.tsx（旧链接兼容跳转）
     ├── settings/payment-accounts/:id      → settings.payment-card-detail.tsx
     ├── settings/reminders         → settings/reminders.tsx
     └── settings/data              → settings/data.tsx
@@ -75,7 +76,7 @@ app/
 │   ├── plan-invite-panel.tsx # 计划邀请链接管理面板
 │   └── public-avatar.tsx    # Emoji 头像展示
 ├── db/
-│   ├── schema.ts            # Drizzle schema（18 张表）
+│   ├── schema.ts            # Drizzle schema（19 张表）
 │   └── queries/
 │       ├── assets.ts        # 资产 CRUD + 保修/维修/换新
 │       ├── dashboard.ts     # Dashboard 聚合查询
@@ -173,7 +174,7 @@ OAuth 和注册邮件确认使用 PKCE code 回调。密码恢复及 OAuth-only 
 
 2. **软删除**：带 `deleted_at TIMESTAMPTZ` 的用户业务实体必须过滤 `deleted_at IS NULL`，禁止硬删除。`repair_records` 允许硬删除；`asset_tags` 等关联表在移除关系时直接删除关联行。保修、续费和提醒任务没有面向用户的删除入口。
 
-3. **金额计算**：使用 `currency.js` 做精确计算，禁止裸浮点数运算。核心逻辑见 `app/lib/cost.ts`。
+3. **金额计算**：核心成本与计划汇总使用 `currency.js` 做精确计算，见 `app/lib/cost.ts` 和 `app/db/queries/plans.read.ts`。`app/lib/backup.server.ts` 的 HTML 备份汇总仍使用原生 `number` 加减，是当前未统一的实现。
 
 4. **时间戳**：所有表有 `created_at`，多数有 `updated_at`。使用 `TIMESTAMPTZ` 类型。
 
@@ -183,13 +184,13 @@ OAuth 和注册邮件确认使用 PKCE code 回调。密码恢复及 OAuth-only 
 
 ## 数据模型
 
-共 18 张表，定义在 `app/db/schema.ts`。
+共 19 张表，定义在 `app/db/schema.ts`。
 
 > **注意**：以下字段表省略了部分 NOT NULL 约束和默认值以保持简洁，完整定义以 `schema.ts` 为准。多数实体表有 `created_at`，需要编辑追踪的实体通常还有 `updated_at`；`asset_tags` 仅保存复合主键。
 
 ### 用户与配置
 
-**`profiles`** — 用户资料（关联 Supabase Auth UUID）
+**`profiles`**：用户资料（关联 Supabase Auth UUID）
 
 | 字段 | 类型 | 说明 |
 |---|---|---|
@@ -208,7 +209,7 @@ OAuth 和注册邮件确认使用 PKCE code 回调。密码恢复及 OAuth-only 
 
 ### 分类与标签
 
-**`categories`** — 资产分类
+**`categories`**：资产分类
 
 | 字段 | 类型 | 说明 |
 |---|---|---|
@@ -221,7 +222,7 @@ OAuth 和注册邮件确认使用 PKCE code 回调。密码恢复及 OAuth-only 
 | `deleted_at` | TIMESTAMPTZ | 软删除 |
 | `created_at` | TIMESTAMPTZ | |
 
-**`tags`** — 资产标签
+**`tags`**：资产标签
 
 | 字段 | 类型 | 说明 |
 |---|---|---|
@@ -234,7 +235,7 @@ OAuth 和注册邮件确认使用 PKCE code 回调。密码恢复及 OAuth-only 
 
 ### 支付方式
 
-**`payment_types`** — 支付类型
+**`payment_types`**：支付类型
 
 预置类型不可修改或删除，并优先于自定义类型展示。应用层按固定顺序排列预置类型，Apple Pay 和其他固定在预置列表末尾；自定义类型随后按名称排序。有效类型名称在用户范围内通过服务端校验和条件唯一索引保持唯一，软删除后名称可复用。固定预置的「信用卡」类型用于新建时启用信用卡资料字段。
 
@@ -247,11 +248,11 @@ OAuth 和注册邮件确认使用 PKCE code 回调。密码恢复及 OAuth-only 
 | `deleted_at` | TIMESTAMPTZ | 软删除 |
 | `created_at` | TIMESTAMPTZ | |
 
-**`payment_accounts`** — 支付账户
+**`payment_accounts`**：支付账户
 
 普通账户和信用卡共用此表与账户编辑页。新建时由固定预置信用卡类型决定 `account_kind`，编辑时不允许切换支付类型。信用卡通过 `account_kind = credit_card` 启用以下元数据：`bank_name`、`last_four`、`notes`、`statement_day`、`repayment_rule`、`repayment_day`、`repayment_days_after_statement`、`credit_limit`、`currency_code`、`is_active`。不保存完整卡号或任何安全凭证。
 
-信用卡日期由应用层将 29–31 日钳制到短月份最后一天。订阅仍通过 `assets.payment_account_id` 关联；聚合按 `currency_code` 分组，不提供汇率换算。停用账户不参与新关联选择，但已有关系可读。
+信用卡日期由应用层将 29 至 31 日钳制到短月份最后一天。订阅仍通过 `assets.payment_account_id` 关联；聚合按 `currency_code` 分组，不提供汇率换算。停用账户不参与新关联选择，但已有关系可读。
 
 | 字段 | 类型 | 说明 |
 |---|---|---|
@@ -264,7 +265,7 @@ OAuth 和注册邮件确认使用 PKCE code 回调。密码恢复及 OAuth-only 
 
 ### 资产核心
 
-**`assets`** — 资产（买断型和订阅型共用一张表）
+**`assets`**：资产（买断型和订阅型共用一张表）
 
 | 字段 | 类型 | 说明 |
 |---|---|---|
@@ -298,14 +299,14 @@ OAuth 和注册邮件确认使用 PKCE code 回调。密码恢复及 OAuth-only 
 | `created_at` | TIMESTAMPTZ | |
 | `updated_at` | TIMESTAMPTZ | |
 
-**`asset_tags`** — 资产-标签关联（复合主键，无软删除）
+**`asset_tags`**：资产-标签关联（复合主键，无软删除）
 
 | 字段 | 类型 | 说明 |
 |---|---|---|
 | `asset_id` | UUID | 复合 PK |
 | `tag_id` | UUID | 复合 PK |
 
-**`asset_value_records`** — 买断型资产估值历史
+**`asset_value_records`**：买断型资产估值历史
 
 | 字段 | 类型 | 说明 |
 |---|---|---|
@@ -323,7 +324,7 @@ OAuth 和注册邮件确认使用 PKCE code 回调。密码恢复及 OAuth-only 
 
 ### 保修与维修
 
-**`warranties`** — 保修信息（每个资产最多一条）
+**`warranties`**：保修信息（每个资产最多一条）
 
 | 字段 | 类型 | 说明 |
 |---|---|---|
@@ -334,7 +335,7 @@ OAuth 和注册邮件确认使用 PKCE code 回调。密码恢复及 OAuth-only 
 | `notes` | TEXT | 备注 |
 | `created_at` / `updated_at` | TIMESTAMPTZ | |
 
-**`repair_records`** — 维修记录（**硬删除**，唯一例外）
+**`repair_records`**：维修记录（**硬删除**，唯一例外）
 
 维修、保修和续费写操作必须先验证父资产属于当前用户且未软删除。维修更新和删除同时以 `repair_id + asset_id` 定位，禁止仅凭子资源 ID 修改。出售价格与维修费用由服务端校验为非负金额，保修结束日期不得早于开始日期。
 
@@ -350,7 +351,7 @@ OAuth 和注册邮件确认使用 PKCE code 回调。密码恢复及 OAuth-only 
 | `is_done` | BOOLEAN | 是否完成 |
 | `created_at` | TIMESTAMPTZ | |
 
-**`subscription_renewals`** — 订阅续费记录
+**`subscription_renewals`**：订阅续费记录
 
 | 字段 | 类型 | 说明 |
 |---|---|---|
@@ -368,7 +369,7 @@ OAuth 和注册邮件确认使用 PKCE code 回调。密码恢复及 OAuth-only 
 
 ### 计划模块
 
-**`plans`** — 计划
+**`plans`**：计划
 
 | 字段 | 类型 | 说明 |
 |---|---|---|
@@ -382,7 +383,7 @@ OAuth 和注册邮件确认使用 PKCE code 回调。密码恢复及 OAuth-only 
 | `deleted_at` | TIMESTAMPTZ | 软删除 |
 | `created_at` / `updated_at` | TIMESTAMPTZ | |
 
-**`plan_members`** — 计划成员
+**`plan_members`**：计划成员
 
 | 字段 | 类型 | 说明 |
 |---|---|---|
@@ -395,7 +396,7 @@ OAuth 和注册邮件确认使用 PKCE code 回调。密码恢复及 OAuth-only 
 | `deleted_at` | TIMESTAMPTZ | 软删除 |
 | `created_at` / `updated_at` | TIMESTAMPTZ | |
 
-**`plan_default_items`** — 计划预设收支项
+**`plan_default_items`**：计划预设收支项
 
 | 字段 | 类型 | 说明 |
 |---|---|---|
@@ -407,7 +408,7 @@ OAuth 和注册邮件确认使用 PKCE code 回调。密码恢复及 OAuth-only 
 | `deleted_at` | TIMESTAMPTZ | 软删除 |
 | `created_at` / `updated_at` | TIMESTAMPTZ | |
 
-**`plan_invite_links`** — 邀请链接
+**`plan_invite_links`**：邀请链接
 
 | 字段 | 类型 | 说明 |
 |---|---|---|
@@ -419,7 +420,7 @@ OAuth 和注册邮件确认使用 PKCE code 回调。密码恢复及 OAuth-only 
 | `revoked_at` | TIMESTAMPTZ | 撤销时间 |
 | `created_at` / `updated_at` | TIMESTAMPTZ | |
 
-**`plan_records`** — 月度记录
+**`plan_records`**：月度记录
 
 | 字段 | 类型 | 说明 |
 |---|---|---|
@@ -427,13 +428,13 @@ OAuth 和注册邮件确认使用 PKCE code 回调。密码恢复及 OAuth-only 
 | `plan_id` | UUID | |
 | `year` | INTEGER | |
 | `month` | INTEGER | |
-| `recorded_total_value` | NUMERIC(12,2) | snapshot 模式总额 |
+| `recorded_total_value` | NUMERIC(12,2) | 保留字段；当前写入流程固定为 null，总额由记录条目派生 |
 | `deleted_at` | TIMESTAMPTZ | 软删除 |
 | `created_at` / `updated_at` | TIMESTAMPTZ | |
 
 UNIQUE 约束：`(plan_id, year, month)`
 
-**`plan_record_items`** — 记录收支明细
+**`plan_record_items`**：记录收支明细
 
 | 字段 | 类型 | 说明 |
 |---|---|---|
@@ -446,7 +447,7 @@ UNIQUE 约束：`(plan_id, year, month)`
 | `deleted_at` | TIMESTAMPTZ | 软删除 |
 | `created_at` / `updated_at` | TIMESTAMPTZ | |
 
-**`plan_record_member_notes`** — 成员月度备注
+**`plan_record_member_notes`**：成员月度备注
 
 | 字段 | 类型 | 说明 |
 |---|---|---|
@@ -461,7 +462,7 @@ UNIQUE 约束：`(record_id, member_id)`
 
 ### 提醒系统
 
-**`reminder_jobs`** — 提醒任务（无软删除）
+**`reminder_jobs`**：提醒任务（无软删除）
 
 | 字段 | 类型 | 说明 |
 |---|---|---|
@@ -584,12 +585,13 @@ useEffect(() => {
 
 ## 数据备份
 
-数据备份功能允许用户按月将全部资产和计划数据通过邮件发送给自己。核心架构：
+数据备份功能按月把有效资产的主要字段和用户参与计划的月度记录通过邮件发送给用户。核心架构：
 
 - **设置页**：`/settings/data`（`app/routes/settings/data.tsx`），备份开关 + 发送日期选择（1-28 日）+ 导出 XLSX 按钮
 - **Cron 端点**：`/api/cron/send-backup`（`app/routes/api.cron.send-backup.tsx`），每日 UTC 09:00 触发
 - **GitHub Actions**：`.github/workflows/send-backup.yml`，每日触发 cron 端点
 - **共享逻辑**：`app/lib/backup.server.ts`，导出 `generateExportXlsx`（生成 XLSX 文件）和 `generateBackupHtml`（生成 HTML 邮件正文）
 - **备份存储**：配置存储在 `profiles` 表（`backup_enabled`、`backup_day_of_month`、`backup_frequency`），不独立建表
-- **邮件发送**：通过 Resend API，HTML 表格形式发送（Resend 免费版不支持附件，未来可扩展）
-- **频率限制**：目前仅支持每月备份，频率字段 `backup_frequency` 已预留供未来扩展
+- **邮件发送**：通过 Resend API 发送 HTML 表格正文，不发送附件
+- **频率限制**：当前仅支持每月备份，`backup_frequency` 固定使用 `monthly`
+- **覆盖范围**：HTML 邮件不包含估值历史、续费历史、保修、维修和支付账户明细；XLSX 包含估值、续费和支付账户，但仍不包含保修与维修，因此当前导出不是数据库级完整备份

@@ -1,23 +1,23 @@
-# Holdly — 认证页面设计规范
+# Holdly 设计规范
 
-> 品牌规范源自 `docs/DESIGN-CLAUDE.md`（Claude 品牌体系）。Holdly 共享同一套暖色调设计语言：暖奶油色画布（`#faf9f5`）、珊瑚色主色（`#cc785c`）、暖墨色文字（`#141413`）。
->
-> 基于 `holdly-prototype.html` 提取，用于指导 /login、/register、/forgot-password 页面实现。
+> 本文记录当前应用使用的视觉语言和组件约束。认证页面与应用主体采用不同的组件规则，均以现有实现为准。
 
 ---
 
 ## 0. 品牌基调
 
-Holdly 的视觉系统继承自 Claude 暖色编辑风格：
+Holdly 使用暖色、低阴影的编辑风格：
 
 - **画布**：暖奶油色 `#faf9f5`（不是纯白），整体氛围温暖、人文
 - **主色**：暖珊瑚 `#cc785c`，hover 加深至 `#a9583e`
 - **文字**：暖墨色 `#141413`（非纯黑），次要文字 `#3d3d3a`，弱化文字 `#6c6a64`
-- **字体**：EB Garamond 衬线体做品牌展示，Inter 无衬线做正文 UI
+- **字体变量**：`--font-display` 声明 `EB Garamond, Georgia, serif`，`--font-body` 声明 `Inter, system-ui, sans-serif`
 - **深度**：色块对比为主（奶油 vs 深色卡片），不使用阴影
 - **圆角**：按钮/输入框 10px，卡片 12px/16px，徽标 pill
 
-色彩 token 参见 `DESIGN-CLAUDE.md` 的 Colors 章节，Holdly 的 `--color-*` 变量与 Claude 品牌 token 一一对应。
+认证页面的色彩以 `app/app.css` 中的 `--color-*` 变量为准。
+
+当前仓库只打包了 Geist Variable，但字体变量没有引用它，也没有打包 EB Garamond 或 Inter。系统未安装对应字体时，浏览器会使用 Georgia 和系统无衬线字体回退。这是当前实现状态，不应把 EB Garamond 或 Inter 视为稳定可用的内置字体。
 
 ---
 
@@ -324,7 +324,7 @@ text-align: center
 ### 12.2 资产列表 (`/assets`)
 
 **筛选栏**：
-- 搜索框：`Input` 组件 + 搜索 icon，placeholder「搜索资产...」
+- 搜索框：`Input` 组件 + 搜索 icon，placeholder「搜索资产…」
 - 类型筛选：水平 pill 按钮组（买断型/订阅型/已取消）
 - 分类筛选：水平滚动 pill 按钮（全部 + 各分类 emoji+名称）
 - 标签筛选/排序：icon 按钮，点击打开底部 Sheet
@@ -468,7 +468,7 @@ const items = [
 - 所有颜色使用 `--color-*` 前缀的 CSS 变量
 - 输入框 focus 必须有 `box-shadow: 0 0 0 3px var(--color-primary-muted)` 光晕
 - 按钮必须有 hover（颜色加深）和 active（scale 0.98）过渡动画
-- 品牌规范参考 `docs/DESIGN-CLAUDE.md`
+- 品牌色、字体和间距以本文件及 `app/app.css` 为准
 
 #### Don't
 - 不使用 shadcn 的 `Button`、`Input`、`Label` 组件
