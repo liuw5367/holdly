@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { calculatePlanRecordAmounts } from './backup'
+import { calculatePlanRecordAmounts } from './plan-record-amounts'
 
 describe('calculatePlanRecordAmounts', () => {
   it('按十进制精度计算累加模式金额', () => {

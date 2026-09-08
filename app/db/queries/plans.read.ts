@@ -1,8 +1,8 @@
 import type { PlanDetailView, PlanMemberView, PlanMode, PlanRecordItemView, PlanRecordMemberNoteView, PlanRecordView, PlanSummaryView } from './plans.types'
-import currency from 'currency.js'
 import { and, asc, desc, eq, inArray, isNull } from 'drizzle-orm'
 import { db } from '~/db'
 import { planDefaultItems, planMembers, planRecordItems, planRecordMemberNotes, planRecords, plans, profiles } from '~/db/schema'
+import { calculatePlanRecordAmounts } from '~/lib/plan-record-amounts'
 import { buildMemberDisplayName, formatMonthKey, formatMonthLabel, toAmount } from './plans.types'
 
 export interface ActivePlanAccess {
@@ -157,21 +157,13 @@ export function buildRecordViews(
   const ascendingViews = ascendingRecords.map((record) => {
     const items = itemMap.get(record.id) || []
     const memberNotes = noteMap.get(record.id) || []
-    const totalIncome = items
-      .filter(item => item.itemType === 'income')
-      .reduce((sum, item) => currency(sum).add(item.amount).value, 0)
-    const totalExpense = items
-      .filter(item => item.itemType === 'expense')
-      .reduce((sum, item) => currency(sum).add(item.amount).value, 0)
-    const monthNetIncome = currency(totalIncome).subtract(totalExpense).value
-    let netIncome = monthNetIncome
-    let totalValue = currency(previousTotal).add(monthNetIncome).value
+    const {
+      monthIncome: totalIncome,
+      monthExpense: totalExpense,
+      netIncome,
+      totalValue,
+    } = calculatePlanRecordAmounts(previousTotal, planMode, items)
     const recordedTotalValue: number | null = null
-
-    if (planMode === 'snapshot') {
-      totalValue = monthNetIncome
-      netIncome = currency(totalValue).subtract(previousTotal).value
-    }
 
     previousTotal = totalValue
 
