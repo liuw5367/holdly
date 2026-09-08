@@ -33,4 +33,16 @@ describe('allocateWorksheetName', () => {
 
     expect(allocateWorksheetName('plan', usedNames)).toBe('plan-2')
   })
+
+  it('截断时保留完整的 Unicode 字符', () => {
+    const workbook = XLSX.utils.book_new()
+    const worksheetName = allocateWorksheetName(`${'a'.repeat(30)}😀`, new Set())
+
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet([[1]]), worksheetName)
+    const output = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' })
+    const rereadWorkbook = XLSX.read(output)
+
+    expect(worksheetName).toBe('a'.repeat(30))
+    expect(rereadWorkbook.SheetNames).toEqual([worksheetName])
+  })
 })
