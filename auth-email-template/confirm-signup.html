@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>确认你的 Holdly 邮箱</title>
+</head>
+
+<body style="margin:0; padding:0; background-color:#f5f3ef; color:#292722; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', Arial, sans-serif;">
+  <div style="display:none; max-height:0; overflow:hidden; opacity:0; color:transparent;">
+    确认邮箱后即可开始使用 Holdly。
+  </div>
+
+  <table
+    role="presentation"
+    width="100%"
+    cellspacing="0"
+    cellpadding="0"
+    border="0"
+    style="width:100%; background-color:#f5f3ef;"
+  >
+    <tr>
+      <td align="center" style="padding:40px 16px;">
+        <table
+          role="presentation"
+          width="100%"
+          cellspacing="0"
+          cellpadding="0"
+          border="0"
+          style="width:100%; max-width:560px;"
+        >
+          <tr>
+            <td align="center" style="padding-bottom:24px;">
+              <div style="font-size:36px; line-height:44px; font-weight:700; color:#786b4f;">
+                Holdly
+              </div>
+            </td>
+          </tr>
+
+          <tr>
+            <td
+              style="background-color:#ffffff; border-radius:16px; padding:40px 32px; box-shadow:0 4px 20px rgba(41,39,34,0.06);"
+            >
+              <h1 style="margin:0 0 20px; font-size:24px; line-height:34px; font-weight:700; color:#292722;">
+                确认你的邮箱
+              </h1>
+
+              <p style="margin:0 0 16px; font-size:15px; line-height:24px; color:#5f5b52;">
+                你好：
+              </p>
+
+              <p style="margin:0 0 28px; font-size:15px; line-height:24px; color:#5f5b52;">
+                欢迎使用 Holdly。点击下方按钮确认邮箱，完成账户注册：
+              </p>
+
+              <table
+                role="presentation"
+                width="100%"
+                cellspacing="0"
+                cellpadding="0"
+                border="0"
+                style="width:100%;"
+              >
+                <tr>
+                  <td align="center" style="padding-bottom:28px;">
+                    <a
+                      href="{{ .ConfirmationURL }}"
+                      style="display:inline-block; min-width:160px; padding:14px 24px; border-radius:10px; background-color:#786b4f; color:#ffffff; font-size:15px; line-height:20px; font-weight:600; text-align:center; text-decoration:none;"
+                    >
+                      确认邮箱
+                    </a>
+                  </td>
+                </tr>
+              </table>
+
+              <p style="margin:0 0 8px; font-size:13px; line-height:21px; color:#817c72;">
+                如果按钮无法打开，请复制下面的链接到浏览器地址栏：
+              </p>
+
+              <p style="margin:0 0 28px; word-break:break-all; font-size:12px; line-height:20px;">
+                <a
+                  href="{{ .ConfirmationURL }}"
+                  style="color:#786b4f; text-decoration:underline;"
+                >
+                  {{ .ConfirmationURL }}
+                </a>
+              </p>
+
+              <div style="height:1px; margin-bottom:24px; background-color:#ebe8e1;"></div>
+
+              <p style="margin:0; font-size:13px; line-height:21px; color:#817c72;">
+                如果不是你本人注册了 Holdly，可以忽略这封邮件，账户不会完成激活。
+              </p>
+            </td>
+          </tr>
+
+          <tr>
+            <td align="center" style="padding:24px 16px 0;">
+              <p style="margin:0; font-size:12px; line-height:20px; color:#969087;">
+                这是一封系统邮件，请勿直接回复。
+              </p>
+              <p style="margin:4px 0 0; font-size:12px; line-height:20px; color:#969087;">
+                © 2026 Holdly
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
