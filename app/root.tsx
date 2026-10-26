@@ -1,7 +1,7 @@
 import type { Route } from './+types/root'
 import { ThemeProvider } from 'next-themes'
 import NProgress from 'nprogress'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import {
   isRouteErrorResponse,
   Links,
@@ -25,10 +25,6 @@ export const links: Route.LinksFunction = () => [
     href: 'https://fonts.gstatic.com',
     crossOrigin: 'anonymous',
   },
-  {
-    rel: 'stylesheet',
-    href: 'https://fonts.googleapis.com/css2?family=EB+Garamond:wght@400;500&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400&display=swap',
-  },
   { rel: 'manifest', href: '/manifest.webmanifest' },
   { rel: 'icon', type: 'image/png', sizes: '16x16', href: '/favicon-16.png' },
   { rel: 'icon', type: 'image/png', sizes: '32x32', href: '/favicon-32.png' },
@@ -36,6 +32,12 @@ export const links: Route.LinksFunction = () => [
 ]
 
 export function Layout({ children }: { children: React.ReactNode }) {
+  const [hydrated, setHydrated] = useState(false)
+
+  useEffect(() => {
+    setHydrated(true)
+  }, [])
+
   return (
     <html lang="zh-CN" suppressHydrationWarning>
       <head>
@@ -53,8 +55,28 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <title>Holdly</title>
         <Meta />
         <Links />
+        <link
+          rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=EB+Garamond:wght@400;500&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400&display=swap"
+          media={hydrated ? 'all' : 'print'}
+        />
+        <style>
+          {`
+          #startup-loading { position: fixed; inset: 0; z-index: 9999; display: grid; place-content: center; justify-items: center; gap: 16px; background: var(--color-canvas, #faf9f5); color: var(--color-muted, #6c6a64); font: 14px system-ui, sans-serif; }
+          #startup-loading span { width: 28px; height: 28px; border: 2px solid var(--color-hairline, #e6dfd8); border-top-color: var(--color-primary, #cc785c); border-radius: 50%; animation: startup-spin 0.8s linear infinite; }
+          @keyframes startup-spin { to { transform: rotate(360deg); } }
+          @media (prefers-reduced-motion: reduce) { #startup-loading span { animation: none; } }
+        `}
+        </style>
+        <noscript><style>{'#startup-loading { display: none; }'}</style></noscript>
       </head>
       <body>
+        {!hydrated && (
+          <div id="startup-loading" role="status" aria-live="polite">
+            <span aria-hidden="true" />
+            正在加载 Holdly…
+          </div>
+        )}
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
           {children}
           <Toaster position="top-center" richColors />
