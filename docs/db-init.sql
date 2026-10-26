@@ -287,6 +287,31 @@ CREATE TABLE IF NOT EXISTS public.reminder_jobs (
 );
 
 -- ============================================================
+-- Data API 默认拒绝
+-- 应用只通过服务端 DATABASE_URL 访问业务表，不为 anon/authenticated 创建 policy
+-- ============================================================
+
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.categories ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.tags ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.payment_types ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.payment_accounts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.assets ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.asset_tags ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.asset_value_records ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.warranties ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.repair_records ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.subscription_renewals ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.plans ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.plan_members ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.plan_default_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.plan_invite_links ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.plan_records ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.plan_record_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.plan_record_member_notes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.reminder_jobs ENABLE ROW LEVEL SECURITY;
+
+-- ============================================================
 -- 索引（提升查询性能）
 -- ============================================================
 

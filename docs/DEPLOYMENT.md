@@ -12,6 +12,7 @@
 | `RESEND_API_KEY` | 邮件功能必填 | Resend API Key；缺失时提醒和备份邮件不会发送 |
 | `EMAIL_FROM` | 否 | 发件人地址，默认 `Holdly <notifications@holdly.app>` |
 | `CRON_SECRET` | GitHub Actions 必填 | Cron 端点共享密钥，需与仓库 Secret 同值 |
+| `PASSWORD_RECOVERY_SECRET` | 是 | 密码恢复授权签名密钥，至少 32 个随机字符 |
 
 `.env.example` 内容：
 
@@ -22,6 +23,7 @@ DATABASE_URL=postgresql://postgres:your-password@db.your-project.supabase.co:543
 RESEND_API_KEY=re_xxxxxxxxxxxx
 EMAIL_FROM='Holdly <notifications@your-domain.com>'
 CRON_SECRET=your-random-secret-string
+PASSWORD_RECOVERY_SECRET=your-random-secret-at-least-32-characters
 ```
 
 ---
@@ -84,7 +86,7 @@ CRON_SECRET=your-random-secret-string
 
 ### 6. 数据访问边界
 
-`docs/db-init.sql` 本身没有声明 Row Level Security 或 Supabase policy。应用通过服务端 `DATABASE_URL` 访问数据库，并在 loader、action 和查询层按用户过滤数据。
+`docs/db-init.sql` 为全部 19 张业务表启用 Row Level Security，但不创建 Supabase policy。应用通过服务端 `DATABASE_URL` 访问数据库，并在 loader、action 和查询层按用户过滤数据。
 
 当前 Supabase 项目的现场核查结果是：所有 `public` 业务表均已启用 RLS，`anon` 与 `authenticated` 保留表级权限，但没有定义 policy。PostgreSQL 对“已启用 RLS 且没有 policy”的表默认拒绝访问，因此浏览器不能通过公开 anon key 直接读写业务数据。当前没有序列；`handle_new_user()` 对 `anon`、`authenticated` 显示可执行，但它是只能由注册 Trigger 触发的 `RETURNS TRIGGER` 函数，不是可直接调用的业务 RPC。
 

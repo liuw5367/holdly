@@ -6,6 +6,8 @@ const { transaction, insert } = vi.hoisted(() => ({
   insert: vi.fn(),
 }))
 
+const selectQueries: Array<{ for: ReturnType<typeof vi.fn> }> = []
+
 vi.mock('~/db', () => ({ db: { transaction } }))
 
 function selectResult(rows: unknown[]) {
@@ -20,12 +22,14 @@ function selectResult(rows: unknown[]) {
   query.where.mockReturnValue(query)
   query.limit.mockReturnValue(query)
   query.for.mockReturnValue(query)
+  selectQueries.push(query)
   return query
 }
 
 describe('asset relation ownership', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    selectQueries.length = 0
     transaction.mockImplementation(async callback => callback({
       select: vi.fn()
         .mockReturnValueOnce(selectResult([{ id: '11111111-1111-1111-1111-111111111111' }]))
@@ -46,6 +50,9 @@ describe('asset relation ownership', () => {
 
     expect(result).toBeNull()
     expect(insert).not.toHaveBeenCalled()
+    expect(selectQueries).toHaveLength(2)
+    expect(selectQueries[0].for).toHaveBeenCalledWith('update')
+    expect(selectQueries[1].for).toHaveBeenCalledWith('update')
   })
 
   it('畸形 UUID 在进入数据库查询前被拒绝', async () => {

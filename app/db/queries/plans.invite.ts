@@ -20,7 +20,7 @@ export async function getActiveInviteLink(planId: string, userId: string) {
     .where(and(
       eq(planInviteLinks.planId, planId),
       isNull(planInviteLinks.revokedAt),
-      sql`${planInviteLinks.expiresAt} > now()`,
+      sql`${planInviteLinks.expiresAt} > clock_timestamp()`,
     ))
     .orderBy(desc(planInviteLinks.createdAt))
     .limit(1)
@@ -36,9 +36,18 @@ export async function regenerateInviteLink(planId: string, userId: string, expir
   const token = createInviteToken()
 
   await db.transaction(async (tx) => {
+    const lockedPlan = await tx
+      .select({ id: plans.id })
+      .from(plans)
+      .where(and(eq(plans.id, planId), isNull(plans.deletedAt)))
+      .limit(1)
+      .for('update')
+    if (!lockedPlan[0])
+      throw new Error('计划不存在或已删除')
+
     await tx
       .update(planInviteLinks)
-      .set({ revokedAt: new Date(), updatedAt: new Date() })
+      .set({ revokedAt: sql`clock_timestamp()`, updatedAt: sql`clock_timestamp()` })
       .where(and(
         eq(planInviteLinks.planId, planId),
         isNull(planInviteLinks.revokedAt),
@@ -51,6 +60,8 @@ export async function regenerateInviteLink(planId: string, userId: string, expir
         token,
         createdByUserId: userId,
         expiresAt,
+        createdAt: sql`clock_timestamp()`,
+        updatedAt: sql`clock_timestamp()`,
       })
   })
 
@@ -62,65 +73,96 @@ export async function revokeInviteLink(planId: string, userId: string) {
   if (!access?.canManage)
     throw new Error('无权限管理邀请链接')
 
-  await db
-    .update(planInviteLinks)
-    .set({ revokedAt: new Date(), updatedAt: new Date() })
-    .where(and(
-      eq(planInviteLinks.planId, planId),
-      isNull(planInviteLinks.revokedAt),
-    ))
+  await db.transaction(async (tx) => {
+    const lockedPlan = await tx
+      .select({ id: plans.id })
+      .from(plans)
+      .where(and(eq(plans.id, planId), isNull(plans.deletedAt)))
+      .limit(1)
+      .for('update')
+    if (!lockedPlan[0])
+      throw new Error('计划不存在或已删除')
+
+    await tx
+      .update(planInviteLinks)
+      .set({ revokedAt: sql`clock_timestamp()`, updatedAt: sql`clock_timestamp()` })
+      .where(and(
+        eq(planInviteLinks.planId, planId),
+        isNull(planInviteLinks.revokedAt),
+      ))
+  })
 }
 
 export async function acceptInviteByToken(token: string, userId: string): Promise<AcceptInviteResult | null> {
-  const rows = await db
-    .select({
-      planId: planInviteLinks.planId,
-      inviteId: planInviteLinks.id,
-      revokedAt: planInviteLinks.revokedAt,
-      expiresAt: planInviteLinks.expiresAt,
-      planDeletedAt: plans.deletedAt,
-    })
-    .from(planInviteLinks)
-    .innerJoin(plans, eq(planInviteLinks.planId, plans.id))
-    .where(eq(planInviteLinks.token, token))
-    .limit(1)
+  return db.transaction(async (tx) => {
+    const lockedPlans = await tx
+      .select({ planId: plans.id })
+      .from(planInviteLinks)
+      .innerJoin(plans, eq(planInviteLinks.planId, plans.id))
+      .where(and(
+        eq(planInviteLinks.token, token),
+        isNull(plans.deletedAt),
+      ))
+      .limit(1)
+      .for('update', { of: plans })
 
-  const invite = rows[0]
-  if (!invite)
-    return null
+    const lockedPlan = lockedPlans[0]
+    if (!lockedPlan)
+      return null
 
-  if (invite.revokedAt || invite.planDeletedAt || invite.expiresAt < new Date())
-    return null
-
-  const existingMember = await db
-    .select()
-    .from(planMembers)
-    .where(and(
-      eq(planMembers.planId, invite.planId),
-      eq(planMembers.userId, userId),
-    ))
-    .orderBy(desc(planMembers.createdAt))
-    .limit(1)
-
-  if (existingMember[0] && !existingMember[0].deletedAt) {
-    return { planId: invite.planId, joined: false }
-  }
-
-  if (existingMember[0] && existingMember[0].deletedAt) {
-    await db
-      .update(planMembers)
-      .set({ deletedAt: null, role: 'editor', updatedAt: new Date() })
-      .where(eq(planMembers.id, existingMember[0].id))
-  }
-  else {
-    await db
-      .insert(planMembers)
-      .values({
-        planId: invite.planId,
-        userId,
-        role: 'editor',
+    const rows = await tx
+      .select({
+        planId: planInviteLinks.planId,
+        inviteId: planInviteLinks.id,
+        inviteCreatedAt: planInviteLinks.createdAt,
       })
-  }
+      .from(planInviteLinks)
+      .where(and(
+        eq(planInviteLinks.token, token),
+        eq(planInviteLinks.planId, lockedPlan.planId),
+        isNull(planInviteLinks.revokedAt),
+        sql`${planInviteLinks.expiresAt} > clock_timestamp()`,
+      ))
+      .limit(1)
+      .for('update')
 
-  return { planId: invite.planId, joined: true }
+    const invite = rows[0]
+    if (!invite)
+      return null
+
+    const existingMember = await tx
+      .select()
+      .from(planMembers)
+      .where(and(
+        eq(planMembers.planId, invite.planId),
+        eq(planMembers.userId, userId),
+      ))
+      .orderBy(desc(planMembers.createdAt))
+      .limit(1)
+      .for('update')
+
+    if (existingMember[0] && !existingMember[0].deletedAt)
+      return { planId: invite.planId, joined: false }
+
+    if (existingMember[0] && existingMember[0].deletedAt) {
+      if (!invite.inviteCreatedAt || invite.inviteCreatedAt <= existingMember[0].deletedAt)
+        return null
+
+      await tx
+        .update(planMembers)
+        .set({ deletedAt: null, role: 'editor', updatedAt: sql`clock_timestamp()` })
+        .where(eq(planMembers.id, existingMember[0].id))
+    }
+    else {
+      await tx
+        .insert(planMembers)
+        .values({
+          planId: invite.planId,
+          userId,
+          role: 'editor',
+        })
+    }
+
+    return { planId: invite.planId, joined: true }
+  })
 }

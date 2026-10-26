@@ -61,6 +61,7 @@ pnpm dev
 | `RESEND_API_KEY` | Resend API Key；发送提醒和备份邮件时必填 |
 | `EMAIL_FROM` | 发件人地址；可选，默认 `Holdly <notifications@holdly.app>` |
 | `CRON_SECRET` | GitHub Actions 调用 Cron 端点时使用的共享密钥 |
+| `PASSWORD_RECOVERY_SECRET` | 密码恢复授权签名密钥；必填，至少 32 个随机字符 |
 
 ## 脚本
 

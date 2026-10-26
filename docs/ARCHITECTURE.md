@@ -180,9 +180,11 @@ OAuth 和注册邮件确认使用 PKCE code 回调。密码恢复及 OAuth-only 
 
 5. **关联 ID 校验**：资产写入会验证分类、标签、支付类型和支付账户都属于当前用户；计划写入只接受已经通过邀请加入的活跃成员。客户端提交的关联 ID 不作为所有权依据。
 
-6. **主键**：统一使用 UUID（`gen_random_uuid()`），除 `profiles`（关联 Supabase Auth UUID）和 `asset_tags`（复合主键）。
+6. **计划邀请并发边界**：邀请生成、撤销、接受和计划编辑按 `plans` 行锁串行化，再锁邀请或成员行；成员移除与邀请生成使用锁后数据库时间，旧链接不能在成员被移除后恢复其权限。
 
-7. **注册初始化**：数据库触发器 `handle_new_user()` 在 `auth.users` 插入后自动创建 profile、预置分类、预置支付类型。
+7. **主键**：统一使用 UUID（`gen_random_uuid()`），除 `profiles`（关联 Supabase Auth UUID）和 `asset_tags`（复合主键）。
+
+8. **注册初始化**：数据库触发器 `handle_new_user()` 在 `auth.users` 插入后自动创建 profile、预置分类、预置支付类型。
 
 ## 数据模型
 

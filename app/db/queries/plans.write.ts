@@ -1,5 +1,5 @@
 import type { PlanMemberRole, PlanRecordPatchInput, SavePlanInput, SavePlanRecordResult } from './plans.types'
-import { and, eq, isNull } from 'drizzle-orm'
+import { and, eq, isNull, sql } from 'drizzle-orm'
 import { db } from '~/db'
 import { planDefaultItems, planMembers, planRecordItems, planRecordMemberNotes, planRecords, plans } from '~/db/schema'
 import { getActivePlanForUser } from './plans.read'
@@ -28,14 +28,25 @@ export async function savePlan(input: SavePlanInput) {
   if (!input.planId && [...uniqueMembers.keys()].some(userId => userId !== input.userId))
     throw new Error('计划成员无效，请通过邀请链接添加成员')
 
+  if (input.planId) {
+    const access = await getActivePlanForUser(input.planId, input.userId)
+    if (!access?.canManage)
+      throw new Error('无权限编辑该计划')
+  }
+
   return db.transaction(async (tx) => {
     let planId = input.planId
     let allowedMemberIds = new Set([input.userId])
 
     if (planId) {
-      const access = await getActivePlanForUser(planId, input.userId)
-      if (!access?.canManage)
-        throw new Error('无权限编辑该计划')
+      const lockedPlan = await tx
+        .select({ id: plans.id })
+        .from(plans)
+        .where(and(eq(plans.id, planId), isNull(plans.deletedAt)))
+        .limit(1)
+        .for('update')
+      if (!lockedPlan[0])
+        throw new Error('计划不存在或已删除')
 
       const activeMembers = await tx
         .select({ userId: planMembers.userId })
@@ -77,7 +88,7 @@ export async function savePlan(input: SavePlanInput) {
 
     await tx
       .update(planMembers)
-      .set({ deletedAt: new Date(), updatedAt: new Date() })
+      .set({ deletedAt: sql`clock_timestamp()`, updatedAt: sql`clock_timestamp()` })
       .where(and(eq(planMembers.planId, planId), isNull(planMembers.deletedAt)))
 
     for (const member of members) {

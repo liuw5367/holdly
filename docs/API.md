@@ -353,6 +353,7 @@
 - token 无效 → `/plans?invite=invalid`
 - 已加入 → `/plans/:planId?invite=already`
 - 新加入 → `/plans/:planId?invite=joined`
+- 被 owner 移除的成员不能复用移除前生成的旧链接；需要使用移除后新生成的邀请链接重新加入
 
 ## Settings 模块
 
