@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
+import { PgDialect } from 'drizzle-orm/pg-core'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { plans } from '~/db/schema'
 import { acceptInviteByToken, regenerateInviteLink, revokeInviteLink } from './plans.invite'
@@ -12,7 +13,7 @@ const { getActivePlanForUser, transaction } = vi.hoisted(() => ({
 vi.mock('~/db', () => ({ db: { transaction } }))
 vi.mock('./plans.read', () => ({ getActivePlanForUser }))
 
-const selectQueries: Array<{ for: ReturnType<typeof vi.fn> }> = []
+const selectQueries: Array<{ for: ReturnType<typeof vi.fn>, limit: ReturnType<typeof vi.fn> }> = []
 
 function selectResult(rows: unknown[]) {
   const query = {
@@ -142,5 +143,53 @@ describe('plan invite membership removal', () => {
 
     expect(result).toEqual({ planId: 'plan-1', joined: true })
     expect(tx.update).toHaveBeenCalledOnce()
+  })
+
+  it('历史创建时间反序时仍拒绝移除前生成的邀请', async () => {
+    const tx = setupTransaction([
+      [{ planId: 'plan-1' }],
+      [{ planId: 'plan-1', inviteCreatedAt: new Date('2026-09-10T00:00:00Z') }],
+      [
+        { id: 'older-generation', deletedAt: new Date('2026-09-05T00:00:00Z') },
+        { id: 'last-removed', deletedAt: new Date('2026-09-15T00:00:00Z') },
+      ],
+    ])
+    tx.update.mockReturnValue(updateResult())
+
+    expect(await acceptInviteByToken('old-token', 'user-1')).toBeNull()
+    expect(tx.update).not.toHaveBeenCalled()
+    expect(selectQueries[2].limit).not.toHaveBeenCalled()
+  })
+
+  it('历史创建时间反序时优先识别仍活跃的成员', async () => {
+    const tx = setupTransaction([
+      [{ planId: 'plan-1' }],
+      [{ planId: 'plan-1', inviteCreatedAt: new Date('2026-09-10T00:00:00Z') }],
+      [
+        { id: 'older-generation', deletedAt: new Date('2026-09-05T00:00:00Z') },
+        { id: 'active-member', deletedAt: null },
+      ],
+    ])
+    tx.update.mockReturnValue(updateResult())
+
+    expect(await acceptInviteByToken('active-token', 'user-1')).toEqual({ planId: 'plan-1', joined: false })
+    expect(tx.update).not.toHaveBeenCalled()
+  })
+
+  it('新邀请恢复最后移除的成员行而非创建时间较晚的旧行', async () => {
+    const tx = setupTransaction([
+      [{ planId: 'plan-1' }],
+      [{ planId: 'plan-1', inviteCreatedAt: new Date('2026-09-20T00:00:00Z') }],
+      [
+        { id: 'older-generation', deletedAt: new Date('2026-09-05T00:00:00Z') },
+        { id: 'last-removed', deletedAt: new Date('2026-09-15T00:00:00Z') },
+      ],
+    ])
+    const update = updateResult()
+    tx.update.mockReturnValue(update)
+
+    expect(await acceptInviteByToken('new-token', 'user-1')).toEqual({ planId: 'plan-1', joined: true })
+    const condition = update.where.mock.calls[0][0]
+    expect(new PgDialect().sqlToQuery(condition).params).toContain('last-removed')
   })
 })

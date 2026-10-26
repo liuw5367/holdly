@@ -130,28 +130,32 @@ export async function acceptInviteByToken(token: string, userId: string): Promis
     if (!invite)
       return null
 
-    const existingMember = await tx
+    const memberHistory = await tx
       .select()
       .from(planMembers)
       .where(and(
         eq(planMembers.planId, invite.planId),
         eq(planMembers.userId, userId),
       ))
-      .orderBy(desc(planMembers.createdAt))
-      .limit(1)
       .for('update')
 
-    if (existingMember[0] && !existingMember[0].deletedAt)
+    if (memberHistory.some(member => !member.deletedAt))
       return { planId: invite.planId, joined: false }
 
-    if (existingMember[0] && existingMember[0].deletedAt) {
-      if (!invite.inviteCreatedAt || invite.inviteCreatedAt <= existingMember[0].deletedAt)
+    // 历史行的创建时间可能因事务等待而反序，必须以最后一次移除时间校验邀请。
+    const lastRemovedMember = memberHistory.reduce<typeof memberHistory[number] | undefined>(
+      (latest, member) => !latest || member.deletedAt! > latest.deletedAt! ? member : latest,
+      undefined,
+    )
+
+    if (lastRemovedMember) {
+      if (!invite.inviteCreatedAt || invite.inviteCreatedAt <= lastRemovedMember.deletedAt!)
         return null
 
       await tx
         .update(planMembers)
         .set({ deletedAt: null, role: 'editor', updatedAt: sql`clock_timestamp()` })
-        .where(eq(planMembers.id, existingMember[0].id))
+        .where(eq(planMembers.id, lastRemovedMember.id))
     }
     else {
       await tx

@@ -174,13 +174,13 @@ OAuth 和注册邮件确认使用 PKCE code 回调。密码恢复及 OAuth-only 
 
 2. **软删除**：带 `deleted_at TIMESTAMPTZ` 的用户业务实体必须过滤 `deleted_at IS NULL`，禁止硬删除。`repair_records` 允许硬删除；`asset_tags` 等关联表在移除关系时直接删除关联行。保修、续费和提醒任务没有面向用户的删除入口。
 
-3. **金额计算**：核心成本与计划汇总使用 `currency.js` 做精确计算，见 `app/lib/cost.ts` 和 `app/db/queries/plans.read.ts`。`app/lib/backup.server.ts` 的 HTML 备份汇总仍使用原生 `number` 加减，是当前未统一的实现。
+3. **金额计算**：核心成本与计划汇总使用 `currency.js` 做精确计算，见 `app/lib/cost.ts` 和 `app/lib/plan-record-amounts.ts`。计划页面、XLSX 导出与 HTML 备份共用计划金额计算函数。
 
 4. **时间戳**：所有表有 `created_at`，多数有 `updated_at`。使用 `TIMESTAMPTZ` 类型。
 
 5. **关联 ID 校验**：资产写入会验证分类、标签、支付类型和支付账户都属于当前用户；计划写入只接受已经通过邀请加入的活跃成员。客户端提交的关联 ID 不作为所有权依据。
 
-6. **计划邀请并发边界**：邀请生成、撤销、接受和计划编辑按 `plans` 行锁串行化，再锁邀请或成员行；成员移除与邀请生成使用锁后数据库时间，旧链接不能在成员被移除后恢复其权限。
+6. **计划邀请并发边界**：邀请生成、撤销、接受和计划编辑按 `plans` 行锁串行化，再锁邀请或成员行；成员移除、替代成员行创建与邀请生成使用锁后数据库时间。接受邀请时检查全部成员历史，优先识别活跃成员，否则以最后一次移除时间判断邀请，避免历史创建时间反序导致旧链接恢复权限。
 
 7. **主键**：统一使用 UUID（`gen_random_uuid()`），除 `profiles`（关联 Supabase Auth UUID）和 `asset_tags`（复合主键）。
 
@@ -556,6 +556,8 @@ Zod schema 定义在 `app/lib/*.schema.ts`，同时用于：
 - `theme-color: #cc785c`
 
 ## NProgress 进度条
+
+首次打开页面时，入口 HTML 显示居中 loading，水合完成后立即移除；若入口脚本加载失败，CSS 会在 10 秒后隐藏遮罩并允许访问已有 SSR 内容。Google Fonts 使用非阻塞样式表加载，水合后启用字体，不影响 loading 退出。
 
 在 `root.tsx` 的 `App` 组件中，通过 `useNavigation()` 监听路由状态变化：
 

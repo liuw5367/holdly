@@ -83,6 +83,9 @@ describe('plan member ownership', () => {
     const memberRemoval = updateSet.mock.calls[1][0]
     expect(memberRemoval.deletedAt).not.toBeInstanceOf(Date)
     expect(memberRemoval.deletedAt.queryChunks[0].value).toContain('clock_timestamp()')
+    const replacementMember = insertValues.mock.calls[0][0]
+    expect(replacementMember.createdAt.queryChunks[0].value).toContain('clock_timestamp()')
+    expect(replacementMember.updatedAt.queryChunks[0].value).toContain('clock_timestamp()')
   })
 
   it('月度记录不能写入非计划成员名下', async () => {

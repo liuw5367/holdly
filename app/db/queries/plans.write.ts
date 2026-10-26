@@ -99,6 +99,8 @@ export async function savePlan(input: SavePlanInput) {
           userId: member.userId,
           role: member.userId === input.userId ? 'owner' : 'editor',
           note: member.note?.trim() || null,
+          createdAt: sql`clock_timestamp()`,
+          updatedAt: sql`clock_timestamp()`,
         })
     }
 

@@ -38,7 +38,7 @@ Supabase Auth，每请求创建 client（`app/lib/supabase.server.ts`）。支�
 
 ### 邮件提醒
 
-通过 Cron 端点 + Resend 发送邮件提醒，支持订阅续费和保修到期。仓库定时任务使用 GitHub Actions，并通过 `x-cron-secret` 鉴权。当前端点仍接受 `x-cron-trigger: true`，但该请求头不是秘密，不能作为生产环境的信任边界。用户也可在设置页「手动检查」触发。全局默认值在 `profiles` 表，单资产覆盖在 `assets` 表。
+通过 Cron 端点 + Resend 发送邮件提醒，支持订阅续费和保修到期。仓库定时任务使用 GitHub Actions，并通过 `x-cron-secret` 鉴权；`x-cron-trigger` 不参与鉴权。用户也可在设置页「手动检查」触发。全局默认值在 `profiles` 表，单资产覆盖在 `assets` 表。
 
 ## 开发流程
 
