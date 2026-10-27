@@ -166,7 +166,7 @@ Supabase client 每请求创建（`app/lib/supabase.server.ts`），通过 cooki
 
 注册邮件确认同样回调 `/auth/callback`。注册 action 使用 `emailRedirectTo=/auth/callback?registered=1`，callback 成功换取 session 后跳转 `/dashboard?registered=1`，Dashboard 显示一次注册成功提示并清理 query。
 
-OAuth 和注册邮件确认使用 PKCE code 回调。密码恢复及 OAuth-only 账户设置密码使用邮件中的 `token_hash`：`/auth/callback` 立即调用 `verifyOtp(type: recovery)` 建立 session，并签发绑定该用户、15 分钟有效的 HMAC 恢复授权 cookie。改密 action 同时核对 session 用户与签名授权，成功后清除授权，失败时可在有效期内重试。邮件可在不同浏览器或设备中打开，普通登录 session 不能伪造恢复授权。账户内修改密码则先用旧密码重新认证，再更新密码。
+OAuth 和注册邮件确认使用 PKCE code 回调。密码恢复及 OAuth-only 账户设置密码使用邮件中的 `token_hash`：`/auth/callback` 调用 `verifyOtp(type: recovery)` 建立 session，再跳转密码设置页。恢复模式使用当前 Supabase 登录会话更新密码，不额外区分普通会话和恢复会话；账户内修改密码则先用旧密码重新认证，再更新密码。邮件可在不同浏览器或设备中打开。
 
 ## 数据库约定
 

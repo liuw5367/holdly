@@ -8,10 +8,6 @@ import { Button } from '~/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '~/components/ui/card'
 import { Field, FieldError, FieldGroup, FieldLabel } from '~/components/ui/field'
 import { Input } from '~/components/ui/input'
-import {
-  clearPasswordRecoveryGrant,
-  getPasswordRecoveryGrant,
-} from '~/lib/password-recovery.server'
 import { createSupabaseServerClient } from '~/lib/supabase.server'
 import { updatePasswordSchema } from '~/lib/update-password.schema'
 
@@ -40,30 +36,27 @@ function PasswordInput({ visible, onToggleVisibility, ...props }: PasswordInputP
 
 export async function loader({ request }: Route.LoaderArgs) {
   const { supabase, headers } = createSupabaseServerClient(request)
-  const requestedMode = new URL(request.url).searchParams.get('mode')
   const { data: { user } } = await supabase.auth.getUser()
   if (!user)
-    return redirect(requestedMode === 'change' ? '/login' : '/forgot-password', { headers })
+    return redirect('/login', { headers })
 
+  const requestedMode = new URL(request.url).searchParams.get('mode')
   const hasPassword = user.identities?.some(identity => identity.provider === 'email') ?? false
   if (requestedMode === 'change' && !hasPassword)
     return redirect('/settings/account', { headers })
 
-  if (requestedMode !== 'change') {
-    const recoveryGrant = getPasswordRecoveryGrant(request)
-    if (recoveryGrant?.sub === user.id)
-      return data({ mode: 'recovery' as const, email: user.email || '' }, { headers })
-    return redirect('/settings/account', { headers })
-  }
-
   return data({
-    mode: 'change' as const,
+    mode: requestedMode === 'change' ? 'change' as const : 'recovery' as const,
     email: user.email || '',
   }, { headers })
 }
 
 export async function action({ request }: Route.ActionArgs) {
   const { supabase, headers } = createSupabaseServerClient(request)
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user)
+    return redirect('/login', { headers })
+
   const formData = await request.formData()
   const parsed = updatePasswordSchema.safeParse({
     mode: formData.get('mode'),
@@ -74,16 +67,7 @@ export async function action({ request }: Route.ActionArgs) {
   if (!parsed.success)
     return data({ error: parsed.error.issues[0].message }, { headers })
 
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user)
-    return redirect('/login', { headers })
-
-  if (parsed.data.mode === 'recovery') {
-    const recoveryGrant = getPasswordRecoveryGrant(request)
-    if (recoveryGrant?.sub !== user.id)
-      return data({ error: '恢复链接无效或已过期' }, { status: 403, headers })
-  }
-  else {
+  if (parsed.data.mode === 'change') {
     if (!user.email)
       return data({ error: '当前账户没有可验证的登录邮箱' }, { headers })
 
@@ -101,9 +85,6 @@ export async function action({ request }: Route.ActionArgs) {
   const { error } = await supabase.auth.updateUser({ password: parsed.data.password })
   if (error)
     return data({ error: error.message }, { headers })
-
-  if (parsed.data.mode === 'recovery')
-    clearPasswordRecoveryGrant(headers, request)
 
   return redirect('/settings/account?passwordChanged=1', { headers })
 }

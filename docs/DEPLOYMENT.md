@@ -12,7 +12,6 @@
 | `RESEND_API_KEY` | 邮件功能必填 | Resend API Key；缺失时提醒和备份邮件不会发送 |
 | `EMAIL_FROM` | 否 | 发件人地址，默认 `Holdly <notifications@holdly.app>` |
 | `CRON_SECRET` | GitHub Actions 必填 | Cron 端点共享密钥，需与仓库 Secret 同值 |
-| `PASSWORD_RECOVERY_SECRET` | 是 | 密码恢复授权签名密钥，至少 32 个随机字符 |
 
 `.env.example` 内容：
 
@@ -23,7 +22,6 @@ DATABASE_URL=postgresql://postgres:your-password@db.your-project.supabase.co:543
 RESEND_API_KEY=re_xxxxxxxxxxxx
 EMAIL_FROM='Holdly <notifications@your-domain.com>'
 CRON_SECRET=your-random-secret-string
-PASSWORD_RECOVERY_SECRET=your-random-secret-at-least-32-characters
 ```
 
 ---
@@ -155,7 +153,6 @@ order by p.proname, arguments;
 | `RESEND_API_KEY` | Resend API Key |
 | `EMAIL_FROM` | 发件人地址（可选）|
 | `CRON_SECRET` | Cron 共享密钥 |
-| `PASSWORD_RECOVERY_SECRET` | 密码恢复授权签名密钥，至少 32 个随机字符 |
 
 ### 3. 构建配置
 

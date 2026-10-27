@@ -33,14 +33,14 @@
 
 | 类型 | 说明 |
 |---|---|
-| Loader | OAuth / 邮箱确认使用 PKCE code 换取 session；密码恢复立即验证并消费邮件中的 `token_hash`，然后签发绑定用户、15 分钟有效的 HttpOnly 恢复授权 cookie，再 redirect `/account/update-password` |
+| Loader | OAuth / 邮箱确认使用 PKCE code 换取 session；密码恢复使用邮件中的 `token_hash` 调用 `verifyOtp(type: recovery)` 建立 session，成功后按 `next` 跳转至 `/account/update-password` |
 
 ### `/account/update-password`
 
 | 类型 | 说明 |
 |---|---|
-| Loader | `?mode=change` 表示账户内改密；恢复模式要求当前 session 与签名恢复授权属于同一用户 |
-| Action | 账户内改密先调用 `signInWithPassword` 验证旧密码；邮件恢复模式验证签名恢复授权后调用 `updateUser`。授权无效、过期或用户不匹配时返回 403；改密成功后清除授权，更新失败时在有效期内保留以便重试 |
+| Loader | 检查 Supabase 登录会话；`?mode=change` 表示账户内改密，否则为恢复模式 |
+| Action | 账户内改密先调用 `signInWithPassword` 验证旧密码；恢复模式使用当前登录会话调用 `updateUser`。成功后跳转 `/settings/account?passwordChanged=1` |
 
 ---
 
