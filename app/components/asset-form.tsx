@@ -587,7 +587,7 @@ export function AssetForm({
         <Button
           type="submit"
           disabled={isSubmitting}
-          className="sticky bottom-[calc(var(--tab-bar-height)+1rem)] mt-6 mb-6 flex w-full items-center justify-center gap-2 text-[15px] font-semibold md:bottom-4"
+          className="sticky bottom-[calc(var(--tab-bar-total-height)+1rem)] mt-6 mb-6 flex w-full items-center justify-center gap-2 text-[15px] font-semibold md:bottom-4"
           onClick={(e) => {
             const invalid = validateBeforeSubmit()
             if (invalid.length > 0) {

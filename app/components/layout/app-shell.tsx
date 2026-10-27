@@ -70,7 +70,7 @@ export default function AppShell() {
       </nav>
 
       {/* Main Content */}
-      <main className="flex-1 pb-20 md:ml-[220px] md:pb-6">
+      <main className="flex-1 pb-[var(--tab-bar-total-height)] md:ml-[220px] md:pb-6">
         <div className={`mx-auto max-w-[640px] px-4 md:px-8 ${location.pathname === '/dashboard' ? 'md:max-w-[960px]' : 'md:max-w-[800px]'}`}>
           <Outlet />
         </div>
@@ -78,12 +78,12 @@ export default function AppShell() {
 
       {/* Mobile Tab Bar */}
       <nav
-        className="fixed bottom-0 left-0 right-0 z-50 flex items-start justify-around border-t pt-2 md:hidden"
+        className="fixed bottom-0 left-0 right-0 z-50 flex items-stretch border-t md:hidden"
         style={{
-          height: 'var(--tab-bar-height)',
+          height: 'var(--tab-bar-total-height)',
           background: 'var(--color-canvas)',
           borderColor: 'var(--color-hairline)',
-          paddingBottom: 'env(safe-area-inset-bottom, 0)',
+          paddingBottom: 'var(--tab-bar-safe-area)',
         }}
       >
         {navItems.map(item => (
@@ -110,7 +110,7 @@ function TabItem({
     <NavLink
       to={to}
       aria-current={isActive ? 'page' : undefined}
-      className="flex min-w-[48px] flex-col items-center gap-0.5 px-2 py-1 text-[10px] transition-colors"
+      className="flex min-w-[48px] flex-1 flex-col items-center justify-center gap-0.5 px-2 text-[10px] transition-colors"
       style={{ color: isActive ? 'var(--color-primary)' : 'var(--color-muted)' }}
     >
       <Icon size={22} />

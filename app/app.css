@@ -57,7 +57,9 @@
 
 :root {
   --page-gutter: 16px;
-  --tab-bar-height: 80px;
+  --tab-bar-height: 56px;
+  --tab-bar-safe-area: calc(env(safe-area-inset-bottom, 0px) / 2);
+  --tab-bar-total-height: calc(var(--tab-bar-height) + var(--tab-bar-safe-area) + 1px);
   --sidebar-width: 220px;
 }
 
