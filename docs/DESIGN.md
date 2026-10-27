@@ -300,9 +300,9 @@ text-align: center
 └──────────────────────┘
 ```
 
-- 底部固定 Tab Bar：4 个等分项，高度 `--tab-bar-height` (80px)，支持 `safe-area-inset-bottom`
-- Tab 项：icon (22px) + label (10px)，active 态主色
-- 内容区：`max-width: 640px`，`padding: 16px`，`padding-bottom: 80px`
+- 底部固定 Tab Bar：主体高度 `--tab-bar-height` (56px)，无顶部内边距，底部额外预留 `--tab-bar-safe-area`，值为 `safe-area-inset-bottom` 的一半；总高度 `--tab-bar-total-height` 包含主体、安全区和 1px 顶部分割线。
+- Tab 项：4 个等宽项，填满导航主体高度并垂直居中；icon (22px) + label (10px)，active 态主色。
+- 内容区：`max-width: 640px`，`padding: 16px`，底部预留 `--tab-bar-total-height`。
 
 ---
 
