@@ -545,8 +545,8 @@ Zod schema 定义在 `app/lib/*.schema.ts`，同时用于：
 | 配置项 | 值 |
 |---|---|
 | `name` | Holdly |
-| `theme_color` | #cc785c |
-| `background_color` | #f0e5dc |
+| `theme_color` | #faf9f5（页面浅色背景） |
+| `background_color` | #faf9f5（页面浅色背景） |
 | `display` | standalone |
 | `start_url` | / |
 
@@ -557,7 +557,8 @@ Zod schema 定义在 `app/lib/*.schema.ts`，同时用于：
 **HTML meta**（`root.tsx` Layout）：
 - `apple-mobile-web-app-capable: yes`
 - `apple-mobile-web-app-status-bar-style: default`
-- `theme-color: #cc785c`
+- `theme-color` 初始值为 `#faf9f5`，`App` 根据当前主题读取 `--color-canvas` 并同步更新
+- `html` 与 `body` 都使用 `--color-canvas` 作为背景；Safari 可按页面背景着色，Apple 状态栏样式继续使用 `default`
 
 ## NProgress 进度条
 

@@ -1,5 +1,5 @@
 import type { Route } from './+types/root'
-import { ThemeProvider } from 'next-themes'
+import { ThemeProvider, useTheme } from 'next-themes'
 import NProgress from 'nprogress'
 import { useEffect, useState } from 'react'
 import {
@@ -51,7 +51,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           name="apple-mobile-web-app-status-bar-style"
           content="default"
         />
-        <meta name="theme-color" content="#cc785c" />
+        <meta name="theme-color" content="#faf9f5" />
         <title>Holdly</title>
         <Meta />
         <Links />
@@ -74,8 +74,21 @@ export function Layout({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
+  const { resolvedTheme } = useTheme()
   const navigation = useNavigation()
   const isNavigating = navigation.state !== 'idle'
+
+  useEffect(() => {
+    const themeColor = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')
+    if (!themeColor)
+      return
+
+    const canvasColor = getComputedStyle(document.documentElement)
+      .getPropertyValue('--color-canvas')
+      .trim()
+    if (canvasColor)
+      themeColor.content = canvasColor
+  }, [resolvedTheme])
 
   useEffect(() => {
     if (isNavigating) {

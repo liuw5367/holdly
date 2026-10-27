@@ -27,8 +27,8 @@ export default defineConfig({
         name: 'Holdly',
         short_name: 'Holdly',
         description: 'Holdly 是一个资产与订阅管理应用。',
-        theme_color: '#cc785c',
-        background_color: '#f0e5dc',
+        theme_color: '#faf9f5',
+        background_color: '#faf9f5',
         display: 'standalone',
         start_url: '/',
         icons: [
