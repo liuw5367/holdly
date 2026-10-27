@@ -361,6 +361,13 @@ export default function SettingsPage() {
         </div>
       </section>
 
+      <p
+        className="mt-8 pb-2 text-center text-xs"
+        style={{ color: 'var(--color-muted-soft)' }}
+      >
+        v20261027-1845
+      </p>
+
     </div>
   )
 }
