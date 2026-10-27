@@ -43,4 +43,15 @@ describe('auth callback loader', () => {
     expect(exchangeCodeForSession).toHaveBeenCalledWith('auth-code')
     expect(verifyOtp).not.toHaveBeenCalled()
   })
+
+  it('注册邮件确认后保留会话 Cookie 并跳转欢迎页', async () => {
+    const request = new Request('https://holdly.example/auth/callback?code=signup-code&registered=1')
+
+    const response = await loader({ request } as Parameters<typeof loader>[0])
+
+    expect(exchangeCodeForSession).toHaveBeenCalledWith('signup-code')
+    expect(verifyOtp).not.toHaveBeenCalled()
+    expect(response.headers.get('Location')).toBe('/dashboard?registered=1')
+    expect(response.headers.get('Set-Cookie')).toContain('sb-session=test')
+  })
 })

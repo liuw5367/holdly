@@ -388,6 +388,7 @@ text-align: center
 ### 13.1 加载状态
 
 - 页面加载：骨架屏或 spinner 居中
+- 资产列表、统计页和计划列表先显示导航和标题，数据区域用 `PageLoading` 显示局部 spinner；不使用遮挡 SSR 内容的全屏启动遮罩，不在查询完成前显示空状态
 - 按钮操作：`disabled` + Spinner icon，不禁用其他按钮
 - 路由切换：NProgress 顶部 2px 进度条（主色）
 
@@ -395,6 +396,7 @@ text-align: center
 
 - 表单错误：字段下方红色文字 12px
 - 页面错误：ErrorBoundary 居中显示状态码 + 文案 + 返回按钮
+- 流式数据错误：保留导航和标题，数据区域显示失败说明及「重新加载」按钮；重试时仅禁用该按钮并显示 spinner
 - Toast 错误：Sonner `toast.error()`，顶部居中
 
 ### 13.3 空状态

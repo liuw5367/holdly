@@ -1,11 +1,12 @@
 import type { Route } from './+types/dashboard'
 import type { ChartConfig } from '~/components/ui/chart'
 import { IconBell, IconBellOff, IconX } from '@tabler/icons-react'
-import { useEffect, useState } from 'react'
-import { data as loaderDataFn, redirect, useLoaderData, useNavigate, useSearchParams } from 'react-router'
+import { Suspense, useEffect, useState } from 'react'
+import { Await, data as loaderDataFn, redirect, useLoaderData, useNavigate, useSearchParams } from 'react-router'
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from 'recharts'
 import { toast } from 'sonner'
 import { MainPageHeader } from '~/components/page-header'
+import { PageLoadError, PageLoading } from '~/components/page-loading'
 import { Button } from '~/components/ui/button'
 import {
   ChartContainer,
@@ -23,8 +24,7 @@ export async function loader({ request }: Route.LoaderArgs) {
   if (!user)
     throw redirect('/login', { headers })
 
-  const result = await getDashboardData(user.id)
-  return loaderDataFn(result, { headers })
+  return loaderDataFn({ content: getDashboardData(user.id) }, { headers })
 }
 
 const trendChartConfig = {
@@ -35,16 +35,10 @@ const trendChartConfig = {
 } satisfies ChartConfig
 
 export default function Dashboard() {
-  const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
-  const data = useLoaderData<typeof loader>()
-  const [showWarning, setShowWarning] = useState(true)
+  const { content } = useLoaderData<typeof loader>()
 
   const statsModel = getStatsModel(searchParams)
-  const { kpiByType, statsByType, expiring } = data
-  const categorySpending = statsByType[statsModel].categorySpending
-  const monthlyTrend = statsByType[statsModel].monthlyTrend
-
   useEffect(() => {
     if (searchParams.get('registered') !== '1')
       return
@@ -54,26 +48,6 @@ export default function Dashboard() {
     nextParams.delete('registered')
     setSearchParams(nextParams, { replace: true })
   }, [searchParams, setSearchParams])
-
-  const oneTimeKpi = kpiByType.one_time
-  const subscriptionKpi = kpiByType.subscription
-  const kpis: Array<{ label: string, value: string, subtitle: string }> = statsModel === 'one_time'
-    ? [
-        { label: '持有中买断', value: String(oneTimeKpi.activeCount), subtitle: '当前仍在持有的买断资产' },
-        { label: '今日持有成本', value: `¥${oneTimeKpi.dailyCostTotal.toFixed(2)}`, subtitle: '按当前持有天数折算' },
-        { label: '持有资产原值', value: `¥${oneTimeKpi.purchaseTotal.toLocaleString()}`, subtitle: '持有中买断资产购入价' },
-        { label: '近一年持有成本', value: `¥${oneTimeKpi.yearlyCostTotal.toLocaleString()}`, subtitle: '过去 365 天累计成本' },
-      ]
-    : [
-        { label: '活动订阅', value: String(subscriptionKpi.activeCount), subtitle: '当前仍在生效的订阅' },
-        { label: '月度预计', value: formatCurrencyGroups(subscriptionKpi.monthlyCostByCurrency), subtitle: '按订阅周期折算' },
-        { label: '年度预计', value: formatCurrencyGroups(subscriptionKpi.yearlyCostByCurrency), subtitle: '按订阅周期折算' },
-        {
-          label: '需关注',
-          value: String(subscriptionKpi.attentionCount),
-          subtitle: `${subscriptionKpi.attentionDetail.overdue} 逾期 · ${subscriptionKpi.attentionDetail.sevenDays} 七天内 · ${subscriptionKpi.attentionDetail.thirtyDays} 三十天内`,
-        },
-      ]
 
   const statsToggle = (
     <ToggleGroup
@@ -116,6 +90,48 @@ export default function Dashboard() {
 
   return (
     <div className="pt-6 pb-8">
+      <MainPageHeader title="统计总览" trailing={statsToggle} />
+      <Suspense fallback={<PageLoading />}>
+        <Await resolve={content} errorElement={<PageLoadError />}>
+          {result => <DashboardContent data={result} statsModel={statsModel} />}
+        </Await>
+      </Suspense>
+    </div>
+  )
+}
+
+function DashboardContent({ data, statsModel }: {
+  data: Awaited<ReturnType<typeof getDashboardData>>
+  statsModel: ReturnType<typeof getStatsModel>
+}) {
+  const navigate = useNavigate()
+  const [showWarning, setShowWarning] = useState(true)
+  const { kpiByType, statsByType, expiring } = data
+  const categorySpending = statsByType[statsModel].categorySpending
+  const monthlyTrend = statsByType[statsModel].monthlyTrend
+
+  const oneTimeKpi = kpiByType.one_time
+  const subscriptionKpi = kpiByType.subscription
+  const kpis: Array<{ label: string, value: string, subtitle: string }> = statsModel === 'one_time'
+    ? [
+        { label: '持有中买断', value: String(oneTimeKpi.activeCount), subtitle: '当前仍在持有的买断资产' },
+        { label: '今日持有成本', value: `¥${oneTimeKpi.dailyCostTotal.toFixed(2)}`, subtitle: '按当前持有天数折算' },
+        { label: '持有资产原值', value: `¥${oneTimeKpi.purchaseTotal.toLocaleString()}`, subtitle: '持有中买断资产购入价' },
+        { label: '近一年持有成本', value: `¥${oneTimeKpi.yearlyCostTotal.toLocaleString()}`, subtitle: '过去 365 天累计成本' },
+      ]
+    : [
+        { label: '活动订阅', value: String(subscriptionKpi.activeCount), subtitle: '当前仍在生效的订阅' },
+        { label: '月度预计', value: formatCurrencyGroups(subscriptionKpi.monthlyCostByCurrency), subtitle: '按订阅周期折算' },
+        { label: '年度预计', value: formatCurrencyGroups(subscriptionKpi.yearlyCostByCurrency), subtitle: '按订阅周期折算' },
+        {
+          label: '需关注',
+          value: String(subscriptionKpi.attentionCount),
+          subtitle: `${subscriptionKpi.attentionDetail.overdue} 逾期 · ${subscriptionKpi.attentionDetail.sevenDays} 七天内 · ${subscriptionKpi.attentionDetail.thirtyDays} 三十天内`,
+        },
+      ]
+
+  return (
+    <>
       {/* Warning Banner */}
       {showWarning && expiring.length > 0 && (
         <div
@@ -146,9 +162,6 @@ export default function Dashboard() {
           </Button>
         </div>
       )}
-
-      {/* Page Header */}
-      <MainPageHeader title="统计总览" trailing={statsToggle} />
 
       {/* KPI Grid */}
       <div className="mb-8 grid grid-cols-2 gap-3">
@@ -334,6 +347,6 @@ export default function Dashboard() {
           </div>
         </section>
       )}
-    </div>
+    </>
   )
 }

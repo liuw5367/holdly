@@ -1,10 +1,11 @@
 import type { Route } from './+types/assets._index'
 import { IconChevronDown, IconSearch, IconX } from '@tabler/icons-react'
 import { differenceInDays } from 'date-fns'
-import { useMemo, useState } from 'react'
-import { data, redirect, useLoaderData, useNavigate } from 'react-router'
+import { Suspense, useMemo, useState } from 'react'
+import { Await, data, redirect, useLoaderData, useNavigate } from 'react-router'
 import { EmptyState } from '~/components/empty-state'
 import { MainPageHeader } from '~/components/page-header'
+import { PageLoadError, PageLoading } from '~/components/page-loading'
 import { Button } from '~/components/ui/button'
 import { Input } from '~/components/ui/input'
 import {
@@ -30,7 +31,10 @@ export async function loader({ request }: Route.LoaderArgs) {
   if (!user)
     throw redirect('/login', { headers })
 
-  const userId = user.id
+  return data({ content: loadAssets(user.id) }, { headers })
+}
+
+async function loadAssets(userId: string) {
   const [rawAssets, categories, tags, assetTagRows] = await Promise.all([
     getAssetsWithCategoryName(userId),
     getCategoriesByUserId(userId),
@@ -66,7 +70,7 @@ export async function loader({ request }: Route.LoaderArgs) {
     assetTagMap[row.assetId].push({ id: row.tagId, name: row.tagName, color: row.tagColor })
   }
 
-  return data({ assets: assetsWithCost, categories, tags, assetTagMap }, { headers })
+  return { assets: assetsWithCost, categories, tags, assetTagMap }
 }
 
 type SortOption = 'default' | 'price_asc' | 'price_desc' | 'cost_asc' | 'cost_desc' | 'date_desc' | 'date_asc'
@@ -83,7 +87,21 @@ const sortLabels: Record<SortOption, string> = {
 }
 
 export default function AssetsIndex() {
-  const { assets, categories, tags, assetTagMap } = useLoaderData<typeof loader>()
+  const { content } = useLoaderData<typeof loader>()
+
+  return (
+    <div className="pb-8 pt-6">
+      <MainPageHeader title="资产管理" actions={[{ label: '+ 资产', to: '/assets/new' }, { label: '+ 订阅', to: '/subscriptions/new' }]} />
+      <Suspense fallback={<PageLoading />}>
+        <Await resolve={content} errorElement={<PageLoadError />}>
+          {result => <AssetsContent {...result} />}
+        </Await>
+      </Suspense>
+    </div>
+  )
+}
+
+function AssetsContent({ assets, categories, tags, assetTagMap }: Awaited<ReturnType<typeof loadAssets>>) {
   const navigate = useNavigate()
   const [search, setSearch] = useState('')
   const [activeType, setActiveType] = useState<TypeFilter>(null)
@@ -137,9 +155,7 @@ export default function AssetsIndex() {
   const activeTagName = selectedTag ? tags.find(t => t.id === selectedTag)?.name : null
 
   return (
-    <div className="pb-8 pt-6">
-      <MainPageHeader title="资产管理" actions={[{ label: '+ 资产', to: '/assets/new' }, { label: '+ 订阅', to: '/subscriptions/new' }]} />
-
+    <>
       <div className="mb-4">
         <div className="relative">
           <IconSearch size={16} className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2" style={{ color: 'var(--color-muted)' }} />
@@ -402,6 +418,6 @@ export default function AssetsIndex() {
           </div>
         </SheetContent>
       </Sheet>
-    </div>
+    </>
   )
 }

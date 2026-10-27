@@ -50,10 +50,10 @@
 
 | 类型 | 说明 |
 |---|---|
-| Loader | 返回 `{ kpiByType, statsByType, expiring }` |
+| Loader | 登录校验后返回 `{ content: Promise<DashboardData> }`，数据区域通过 `Await` 读取结果 |
 | Action | 无 |
 
-**loader 返回数据**：
+**`content` 解析后的数据**：
 
 ```typescript
 {
@@ -102,10 +102,10 @@
 
 | 类型 | 说明 |
 |---|---|
-| Loader | 返回 `{ assets, categories, tags, assetTagMap }` |
+| Loader | 登录校验后返回 `{ content: Promise<AssetsData> }`，数据区域通过 `Await` 读取结果 |
 | Action | 无 |
 
-**loader 返回数据**：
+**`content` 解析后的数据**：
 
 ```typescript
 {
@@ -243,7 +243,7 @@
 
 | 类型 | 说明 |
 |---|---|
-| Loader | 返回 `{ plans }`，即用户参与的所有计划摘要 |
+| Loader | 登录校验后返回 `{ plans: Promise<PlanSummary[]> }`，解析后为用户参与的所有计划摘要 |
 | Action | 无 |
 
 **loader 返回数据**：
