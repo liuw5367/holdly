@@ -452,7 +452,7 @@
 |---|---|
 | Action | Cron 鉴权通过时处理所有开启全局提醒的用户；否则要求 Supabase session，并只处理当前用户 |
 
-**鉴权**：仓库调度任务只接受非空且与环境变量 `CRON_SECRET` 完全一致的 `x-cron-secret`（GitHub Actions）。没有有效 Cron 密钥时使用当前用户 session，仅处理该用户。
+**鉴权**：`x-cron-secret` 与环境变量 `CRON_SECRET` 相等，或携带 `x-cron-trigger: true` 时进入全局 Cron 模式；否则使用当前用户 session，仅处理该用户。密钥按原值直接比较，不额外校验非空。
 
 **处理逻辑**：
 1. 全局任务查询所有 `reminderEnabled = true` 的 profile；手动请求只使用当前用户
@@ -468,7 +468,7 @@
 |---|---|
 | Action | 每日触发，匹配用户 `backupDayOfMonth` → 生成 HTML 邮件，通过 Resend 发送 |
 
-**鉴权**：仓库调度任务只接受非空且与环境变量 `CRON_SECRET` 完全一致的 `x-cron-secret`（GitHub Actions）；失败返回 401。
+**鉴权**：`x-cron-secret` 与环境变量 `CRON_SECRET` 相等，或携带 `x-cron-trigger: true` 时允许执行；否则返回 401。密钥按原值直接比较，不额外校验非空。
 
 **处理逻辑**：
 1. 查询所有 `backupEnabled = true` 的用户

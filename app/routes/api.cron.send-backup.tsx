@@ -1,13 +1,14 @@
+import process from 'node:process'
 import { format } from 'date-fns'
 import { eq } from 'drizzle-orm'
 import { db } from '~/db'
 import { profiles } from '~/db/schema'
 import { generateBackupHtml } from '~/lib/backup.server'
-import { isAuthorizedCronRequest } from '~/lib/cron-auth.server'
 import { sendEmail } from '~/lib/email.server'
 
 export async function action({ request }: { request: Request }) {
-  const isCron = isAuthorizedCronRequest(request)
+  const secret = request.headers.get('x-cron-secret')
+  const isCron = secret === process.env.CRON_SECRET || request.headers.get('x-cron-trigger') === 'true'
 
   if (!isCron) {
     return Response.json({ ok: false, error: 'Unauthorized' }, { status: 401 })

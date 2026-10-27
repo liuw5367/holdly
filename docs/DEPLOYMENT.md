@@ -182,7 +182,7 @@ order by p.proname, arguments;
 | `CRON_SECRET` | 与部署环境中的 `CRON_SECRET` 保持一致 |
 | `VERCEL_URL` | 部署域名，例如 `https://holdly.example.com`；不配置时工作流使用仓库内的默认地址 |
 
-工作流通过 `x-cron-secret` 请求头鉴权，服务端只接受非空且与部署环境 `CRON_SECRET` 完全一致的值。`x-cron-trigger` 不参与鉴权。仓库没有 `vercel.json`，默认调度来源是 GitHub Actions。提醒设置页在本地环境还提供仅处理当前登录用户的手动检查入口。
+工作流通过 `x-cron-secret` 与部署环境 `CRON_SECRET` 比较鉴权，端点同时兼容 `x-cron-trigger: true`。密钥按原值直接比较，不额外校验非空；兼容请求头不是秘密，不能作为生产环境的信任边界。仓库没有 `vercel.json`，默认调度来源是 GitHub Actions。提醒设置页在本地环境还提供仅处理当前登录用户的手动检查入口。
 
 ---
 

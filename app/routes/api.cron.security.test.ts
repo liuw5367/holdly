@@ -39,7 +39,7 @@ describe('cron authentication', () => {
     vi.unstubAllEnvs()
   })
 
-  it('拒绝伪造的兼容请求头', async () => {
+  it('提醒端点接受原有兼容请求头', async () => {
     const request = new Request('https://holdly.example/api/cron/send-reminders', {
       method: 'POST',
       headers: { 'x-cron-trigger': 'true' },
@@ -47,11 +47,11 @@ describe('cron authentication', () => {
 
     const response = await reminderAction({ request })
 
-    expect(response.status).toBe(401)
-    expect(dbSelect).not.toHaveBeenCalled()
+    expect(response.status).toBe(200)
+    expect(dbSelect).toHaveBeenCalled()
   })
 
-  it('备份端点同样拒绝伪造的兼容请求头', async () => {
+  it('备份端点接受原有兼容请求头', async () => {
     const request = new Request('https://holdly.example/api/cron/send-backup', {
       method: 'POST',
       headers: { 'x-cron-trigger': 'true' },
@@ -59,11 +59,11 @@ describe('cron authentication', () => {
 
     const response = await backupAction({ request })
 
-    expect(response.status).toBe(401)
-    expect(dbSelect).not.toHaveBeenCalled()
+    expect(response.status).toBe(200)
+    expect(dbSelect).toHaveBeenCalled()
   })
 
-  it('只接受非空且正确的 Cron 密钥', async () => {
+  it('按原有逻辑直接比较请求密钥与配置值', async () => {
     const validRequest = new Request('https://holdly.example/api/cron/send-reminders', {
       method: 'POST',
       headers: { 'x-cron-secret': 'real-secret' },
@@ -76,6 +76,16 @@ describe('cron authentication', () => {
       method: 'POST',
       headers: { 'x-cron-secret': '' },
     })
-    expect((await reminderAction({ request: emptyRequest })).status).toBe(401)
+    expect((await reminderAction({ request: emptyRequest })).status).toBe(200)
+  })
+
+  it('没有兼容请求头且密钥错误时拒绝未登录请求', async () => {
+    const request = new Request('https://holdly.example/api/cron/send-reminders', {
+      method: 'POST',
+      headers: { 'x-cron-secret': 'wrong-secret' },
+    })
+
+    expect((await reminderAction({ request })).status).toBe(401)
+    expect(dbSelect).not.toHaveBeenCalled()
   })
 })
