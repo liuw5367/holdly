@@ -22,9 +22,9 @@ export async function loader({ request }: Route.LoaderArgs) {
 }
 
 const navItems = [
-  { to: '/dashboard', label: '统计', icon: IconLayoutDashboard },
   { to: '/assets', label: '资产', icon: IconBox },
   { to: '/plans', label: '计划', icon: IconFileText },
+  { to: '/dashboard', label: '统计', icon: IconLayoutDashboard },
   { to: '/settings', label: '设置', icon: IconSettings },
 ]
 
