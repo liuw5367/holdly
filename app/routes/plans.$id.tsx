@@ -147,7 +147,6 @@ export default function PlansDetail() {
   const submit = useSubmit()
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [trendMetric, setTrendMetric] = useState<TrendMetric>('netValue')
-  const [selectedYear, setSelectedYear] = useState<string>('all')
 
   const isSubmittingDelete = navigation.state !== 'idle'
     && navigation.formData?.get('intent') === 'delete-plan'
@@ -164,6 +163,9 @@ export default function PlansDetail() {
   const availableYears = useMemo(
     () => [...new Set(detail.records.map(record => record.year))].sort((a, b) => b - a),
     [detail.records],
+  )
+  const [selectedYear, setSelectedYear] = useState<string>(
+    () => availableYears.length > 0 ? String(availableYears[0]) : 'all',
   )
   const filteredRecords = useMemo(
     () => selectedYear === 'all'
